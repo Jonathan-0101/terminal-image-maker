@@ -24,7 +24,8 @@ const refs = {
 };
 
 const root = document.documentElement;
-const exportScale = Math.max(16, window.devicePixelRatio * 4);
+const exportScale = Math.max(8, window.devicePixelRatio * 2);
+const exportPadding = 24;
 const modeOrder = ["system", "light", "dark"];
 const firstLinePlaceholder = "type here...";
 const firstLinePlaceholders = new Set([firstLinePlaceholder]);
@@ -660,9 +661,18 @@ function initSaveButton() {
         height,
         useCORS: true,
       });
+
+      const paddingPx = Math.round(exportPadding * exportScale);
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = canvas.width + paddingPx * 2;
+      exportCanvas.height = canvas.height + paddingPx * 2;
+
+      const exportContext = exportCanvas.getContext("2d");
+      exportContext.drawImage(canvas, paddingPx, paddingPx);
+
       const link = document.createElement("a");
       link.download = "terminal-screen.png";
-      link.href = canvas.toDataURL("image/png");
+      link.href = exportCanvas.toDataURL("image/png");
       link.click();
     } finally {
       refs.saveButton.disabled = false;
