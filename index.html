@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminal Screenshot</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+  <div class="color-mode">
+    <button class="mode-toggle" type="button" aria-label="Use system colour mode" aria-pressed="mixed"
+      data-mode="system">
+      <span class="mode-toggle-icon mode-toggle-sun" aria-hidden="true">
+        <i class="bi bi-brightness-high-fill"></i>
+      </span>
+      <span class="mode-toggle-icon mode-toggle-moon" aria-hidden="true">
+        <i class="bi bi-moon-fill"></i>
+      </span>
+      <span class="mode-toggle-label" aria-hidden="true">A</span>
+    </button>
+  </div>
+
+  <div class="terminal">
+    <div class="titlebar">
+      <span class="window-control red"></span>
+      <span class="window-control yellow"></span>
+      <span class="window-control green"></span>
+      <span class="title">user@host:~$</span>
+    </div>
+    <pre class="content" contenteditable="true"><span class="first-char">~ $ </span>type here...</pre>
+  </div>
+
+  <div class="controls">
+    <label class="control-item">
+      <span class="control-label">Width</span>
+      <input class="control-input" id="ctrl-width" type="number" value="600" min="320" max="1400" step="10">
+    </label>
+    <label class="control-item">
+      <span class="control-label">Height</span>
+      <input class="control-input" id="ctrl-height" type="number" value="330" min="180" max="900" step="10">
+    </label>
+    <label class="control-item">
+      <span class="control-label">Text size</span>
+      <input class="control-input" id="ctrl-font-size" type="number" value="16" min="10" max="32" step="1">
+    </label>
+    <label class="control-item">
+      <span class="control-label">Font</span>
+      <select class="control-select" id="ctrl-font-family">
+        <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+        <option value="Menlo, Monaco, monospace">Menlo</option>
+        <option value="'SF Mono', 'Courier New', monospace">SF Mono</option>
+        <option value="'Courier New', Courier, monospace">Courier New</option>
+      </select>
+    </label>
+    <div class="control-divider"></div>
+    <label class="control-item">
+      <span class="control-label">Line start</span>
+      <select class="control-select" id="ctrl-prompt-style">
+        <option value="~ $ ">~ $</option>
+        <option value="$ ">$</option>
+        <option value="# ">#</option>
+        <option value="> ">&#62;</option>
+        <option value="❯ ">❯</option>
+        <option value="→ ">→</option>
+        <option value="% ">%</option>
+        <option value="λ ">λ</option>
+        <option value=" "></option>
+        <option value="{user}@{host}:~$ " data-user-host-template="true">user@host:~$</option>
+        <option value="[{user}@{host} ~]$ " data-user-host-template="true">[user@host ~]$</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <input class="control-select" id="ctrl-prompt-style-custom" type="text" placeholder="type custom line start"
+        hidden>
+    </label>
+    <div class="control-divider"></div>
+    <label class="control-item control-item-checkbox">
+      <span class="control-label">User and host</span>
+      <span class="control-checkbox-row">
+        <input type="checkbox" id="ctrl-user-host-enabled" class="control-checkbox">
+        <span class="control-checkbox-text">Use custom values</span>
+      </span>
+    </label>
+    <div class="user-host-group" id="ctrl-user-host-group" hidden>
+      <label class="control-item" id="ctrl-user-field">
+        <span class="control-label">User</span>
+        <input class="control-input" id="ctrl-user" type="text" value="user" disabled>
+      </label>
+      <label class="control-item" id="ctrl-host-field">
+        <span class="control-label">Host</span>
+        <input class="control-input" id="ctrl-host" type="text" value="host" disabled>
+      </label>
+    </div>
+    <div class="control-divider"></div>
+    <label class="control-item">
+      <span class="control-label">Prompt colour</span>
+      <input class="control-color" id="ctrl-color-prompt" type="color" value="#ffffff">
+    </label>
+    <div class="control-item">
+      <span class="control-label">Command colour</span>
+      <div class="control-cmd-row">
+        <label class="control-cmd-toggle">
+          <input type="checkbox" id="ctrl-cmd-word" class="control-checkbox">
+        </label>
+        <input class="control-color control-color-cmd" id="ctrl-color-cmd" type="color" value="#08ff02" disabled>
+      </div>
+    </div>
+    <label class="control-item">
+      <span class="control-label">Text colour</span>
+      <input class="control-color" id="ctrl-color-text" type="color" value="#999999">
+    </label>
+    <label class="control-item">
+      <span class="control-label">Terminal colour</span>
+      <input class="control-color" id="ctrl-color-bg" type="color" value="#1e1e1e">
+    </label>
+    <div class="control-divider"></div>
+    <button class="control-reset" id="ctrl-reset" type="button">Reset defaults</button>
+  </div>
+
+  <button class="save-button" type="button">
+    <i class="bi bi-download"></i>
+    <span class="save-label"> Save Terminal Image</span>
+  </button>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script defer src="./script.js"></script>
+</body>
+
+</html>
