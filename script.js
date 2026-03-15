@@ -15,6 +15,9 @@ const refs = {
   heightInput: document.getElementById("ctrl-height"),
   fontSizeInput: document.getElementById("ctrl-font-size"),
   fontFamilyInput: document.getElementById("ctrl-font-family"),
+  fontVariantInput: document.getElementById("ctrl-font-variant"),
+  fontVariantLabel: document.getElementById("ctrl-font-variant-label"),
+  floatingTooltip: document.getElementById("ctrl-floating-tooltip"),
   wordWrapInput: document.getElementById("ctrl-word-wrap"),
   titleTextVisibleInput: document.getElementById("ctrl-title-text-visible"),
   promptStyleInput: document.getElementById("ctrl-prompt-style"),
@@ -49,6 +52,7 @@ const defaults = {
   height: 330,
   fontSize: 16,
   fontFamily: "'JetBrains Mono', monospace",
+  fontVariant: "400:normal",
   promptStyle: "~ $ ",
   user: "user",
   host: "host",
@@ -134,6 +138,102 @@ const highlightThemes = {
     "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/xcode.min.css",
 };
 
+const fontVariantsByFamily = {
+  "'JetBrains Mono', monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "500:normal", label: "Medium", weight: "500", style: "normal" },
+    { value: "600:normal", label: "Semibold", weight: "600", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "500:italic",
+      label: "Medium Italic",
+      weight: "500",
+      style: "italic",
+    },
+    {
+      value: "600:italic",
+      label: "Semibold Italic",
+      weight: "600",
+      style: "italic",
+    },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "Menlo, Monaco, monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "ui-monospace, 'SF Mono', SFMono-Regular, monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "500:normal", label: "Medium", weight: "500", style: "normal" },
+    { value: "600:normal", label: "Semibold", weight: "600", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "'Courier New', Courier, monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "Consolas, monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "Arial, Helvetica, sans-serif": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  default: [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+};
+
 const state = {
   promptPrefix: defaults.promptStyle,
   customPrompt: "",
@@ -147,9 +247,12 @@ const state = {
   editorMode: defaults.editorMode,
   codeLanguage: defaults.codeLanguage,
   codeTheme: defaults.codeTheme,
+  fontVariant: defaults.fontVariant,
   detectedCodeLanguage: defaults.codeLanguage,
   terminalTitle: defaults.title,
 };
+
+let autoExtendTerminalHeightFrame = 0;
 
 function withPromptSpacing(value) {
   if (!value) return "";
@@ -160,12 +263,204 @@ function firstPrompt() {
   return refs.terminalContent.querySelector(".first-char");
 }
 
+function getPromptNodes() {
+  return refs.terminalContent.querySelectorAll(".first-char");
+}
+
+function isTerminalMode() {
+  return state.editorMode === "terminal";
+}
+
+function isCodeMode() {
+  return state.editorMode === "code";
+}
+
+function getActiveSelection() {
+  const selection = window.getSelection();
+  return selection?.rangeCount ? selection : null;
+}
+
+function setSelectionRange(range, selection = window.getSelection()) {
+  if (!selection) return;
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function createPromptNode(text = state.promptPrefix) {
+  const prompt = document.createElement("span");
+  prompt.className = "first-char";
+  prompt.textContent = text;
+  return prompt;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
 function setCssVar(name, value) {
   root.style.setProperty(name, value);
 }
 
+function setTextColors(value) {
+  setCssVar("--terminal-text", value);
+  setCssVar("--code-plain-text", value);
+}
+
+function setUserHostInputsEnabled(enabled) {
+  refs.userInput.disabled = !enabled;
+  refs.hostInput.disabled = !enabled;
+}
+
+function getFontVariantsForFamily(fontFamily) {
+  return fontVariantsByFamily[fontFamily] || fontVariantsByFamily.default;
+}
+
+function hideFloatingTooltip() {
+  if (!refs.floatingTooltip) return;
+  refs.floatingTooltip.classList.remove("is-visible");
+  refs.floatingTooltip.hidden = true;
+}
+
+function showFloatingTooltipForLabel(labelNode) {
+  if (!refs.floatingTooltip || !labelNode) return;
+
+  const message = labelNode.dataset.errorMessage;
+  if (!message) {
+    hideFloatingTooltip();
+    return;
+  }
+
+  refs.floatingTooltip.textContent = message;
+  refs.floatingTooltip.hidden = false;
+
+  const gap = 8;
+  const viewportPadding = 8;
+  const labelRect = labelNode.getBoundingClientRect();
+  const tipRect = refs.floatingTooltip.getBoundingClientRect();
+
+  let left = labelRect.right - tipRect.width;
+  left = Math.max(
+    viewportPadding,
+    Math.min(left, window.innerWidth - tipRect.width - viewportPadding),
+  );
+
+  let top = labelRect.bottom + gap;
+  if (top + tipRect.height > window.innerHeight - viewportPadding) {
+    top = labelRect.top - tipRect.height - gap;
+  }
+  top = Math.max(viewportPadding, top);
+
+  refs.floatingTooltip.style.left = `${Math.round(left)}px`;
+  refs.floatingTooltip.style.top = `${Math.round(top)}px`;
+  refs.floatingTooltip.classList.add("is-visible");
+}
+
+function setFontStyleWarning(message = "") {
+  if (!refs.fontVariantLabel) return;
+
+  refs.fontVariantLabel.classList.toggle("is-error", Boolean(message));
+  if (message) {
+    refs.fontVariantLabel.setAttribute("data-error-message", message);
+    refs.fontVariantLabel.setAttribute(
+      "aria-label",
+      `Font style warning: ${message}`,
+    );
+    return;
+  }
+
+  refs.fontVariantLabel.removeAttribute("data-error-message");
+  refs.fontVariantLabel.removeAttribute("aria-label");
+  hideFloatingTooltip();
+}
+
+function applyFontVariant(variantValue) {
+  const variants = getFontVariantsForFamily(refs.fontFamilyInput.value);
+  const variant =
+    variants.find((item) => item.value === variantValue) || variants[0];
+  if (!variant) return;
+
+  state.fontVariant = variant.value;
+  refs.fontVariantInput.value = variant.value;
+  setCssVar("--terminal-font-weight", variant.weight);
+  setCssVar("--terminal-font-style", variant.style);
+}
+
+function parseVariantValue(variantValue) {
+  const [weightRaw, styleRaw] = String(variantValue || "").split(":");
+  const weight = Number(weightRaw);
+  return {
+    weight: Number.isFinite(weight) ? weight : 400,
+    style: styleRaw === "italic" ? "italic" : "normal",
+  };
+}
+
+function findClosestVariant(variants, preferredVariant) {
+  if (!variants.length) return null;
+
+  const preferred = parseVariantValue(preferredVariant);
+  const styleMatches = variants.filter(
+    (variant) => variant.style === preferred.style,
+  );
+  const pool = styleMatches.length ? styleMatches : variants;
+
+  let closest = pool[0];
+  let smallestDistance = Math.abs(Number(pool[0].weight) - preferred.weight);
+
+  for (const variant of pool.slice(1)) {
+    const distance = Math.abs(Number(variant.weight) - preferred.weight);
+    if (distance < smallestDistance) {
+      closest = variant;
+      smallestDistance = distance;
+    }
+  }
+
+  return closest;
+}
+
+function syncFontVariantOptions(
+  preferredVariant,
+  { warnOnFallback = false } = {},
+) {
+  const variants = getFontVariantsForFamily(refs.fontFamilyInput.value);
+  if (!variants.length) return;
+
+  refs.fontVariantInput.replaceChildren();
+  variants.forEach((variant) => {
+    const option = document.createElement("option");
+    option.value = variant.value;
+    option.textContent = variant.label;
+    refs.fontVariantInput.append(option);
+  });
+
+  const preferred = preferredVariant || defaults.fontVariant;
+  const preferredSupported = variants.some(
+    (variant) => variant.value === preferred,
+  );
+  const fallbackVariant = findClosestVariant(variants, preferred);
+  const nextValue = preferredSupported
+    ? preferred
+    : fallbackVariant
+      ? fallbackVariant.value
+      : variants[0].value;
+
+  applyFontVariant(nextValue);
+
+  if (warnOnFallback && preferred && !preferredSupported) {
+    const fallback =
+      variants.find((variant) => variant.value === nextValue) ||
+      fallbackVariant;
+    const fallbackLabel = fallback ? fallback.label : "Regular";
+    setFontStyleWarning(
+      `Selected style is not available for this font. Switched to ${fallbackLabel}.`,
+    );
+    return;
+  }
+
+  setFontStyleWarning("");
+}
+
 function setAllPromptTexts(text) {
-  refs.terminalContent.querySelectorAll(".first-char").forEach((node) => {
+  getPromptNodes().forEach((node) => {
     node.textContent = text;
   });
 }
@@ -196,27 +491,33 @@ function getLanguageLabel(language) {
 }
 
 function updateCodeModeTitle() {
-  if (state.editorMode !== "code") return;
+  if (!isCodeMode()) return;
   const language =
     state.codeLanguage === "auto"
       ? state.detectedCodeLanguage || "auto"
       : state.codeLanguage;
-  refs.title.textContent = `${getLanguageLabel(language)}`;
+  refs.title.textContent = getLanguageLabel(language);
+}
+
+function autoExtendTerminalHeight() {
+  const activeEditor = isCodeMode() ? refs.codeInput : refs.terminalContent;
+  if (!activeEditor) return;
+
+  const overflow = activeEditor.scrollHeight - activeEditor.clientHeight;
+  if (overflow <= 0) return;
+
+  const currentHeight = refs.terminal.getBoundingClientRect().height;
+  const nextHeight = Math.ceil(currentHeight + overflow + 2);
+  refs.terminal.style.height = `${nextHeight}px`;
+  refs.heightInput.value = String(nextHeight);
 }
 
 function queueAutoExtendTerminalHeight() {
-  window.requestAnimationFrame(() => {
-    const activeEditor =
-      state.editorMode === "code" ? refs.codeInput : refs.terminalContent;
-    if (!activeEditor) return;
+  if (autoExtendTerminalHeightFrame) return;
 
-    const overflow = activeEditor.scrollHeight - activeEditor.clientHeight;
-    if (overflow <= 0) return;
-
-    const currentHeight = refs.terminal.getBoundingClientRect().height;
-    const nextHeight = Math.ceil(currentHeight + overflow + 2);
-    refs.terminal.style.height = `${nextHeight}px`;
-    refs.heightInput.value = String(nextHeight);
+  autoExtendTerminalHeightFrame = window.requestAnimationFrame(() => {
+    autoExtendTerminalHeightFrame = 0;
+    autoExtendTerminalHeight();
   });
 }
 
@@ -250,13 +551,13 @@ function applyCodeTheme(themeName) {
 }
 
 function getCurrentModeTitleVisibility() {
-  return state.editorMode === "code"
+  return isCodeMode()
     ? state.codeTitleTextVisible
     : state.terminalTitleTextVisible;
 }
 
 function setCurrentModeTitleVisibility(visible) {
-  if (state.editorMode === "code") {
+  if (isCodeMode()) {
     state.codeTitleTextVisible = visible;
   } else {
     state.terminalTitleTextVisible = visible;
@@ -270,38 +571,14 @@ function syncTitleVisibilityForCurrentMode() {
   setCurrentModeTitleVisibility(getCurrentModeTitleVisibility());
 }
 
-function animateControlsModeSwitch(startHeight) {
-  const controls = refs.controls;
-  if (!controls) return;
-
-  const maxHeight = parseFloat(getComputedStyle(controls).maxHeight);
-  let targetHeight = controls.scrollHeight;
-  if (Number.isFinite(maxHeight) && maxHeight > 0) {
-    targetHeight = Math.min(targetHeight, maxHeight);
-  }
-
-  if (Math.abs(targetHeight - startHeight) < 1) return;
-
-  controls.classList.add("is-mode-switching");
-  controls.style.height = `${startHeight}px`;
-  // Force layout so the height transition starts from the current rendered size.
-  void controls.offsetHeight;
-  controls.style.height = `${targetHeight}px`;
-
-  const onTransitionEnd = (event) => {
-    if (event.propertyName !== "height") return;
-    controls.style.height = "";
-    controls.classList.remove("is-mode-switching");
-    controls.removeEventListener("transitionend", onTransitionEnd);
-  };
-
-  controls.addEventListener("transitionend", onTransitionEnd);
-}
-
 function syncTitleWithDefault() {
   if (state.titleUsesDefault) {
     refs.title.textContent = getDefaultTitle();
   }
+}
+
+function updateTitleUsesDefault() {
+  state.titleUsesDefault = refs.title.textContent === getDefaultTitle();
 }
 
 function syncUserHostPromptOptions() {
@@ -337,9 +614,10 @@ function syncUserHostBindings() {
 function setUserHostFieldVisibility(visible) {
   const group = refs.userHostGroup;
   if (!group) return;
+  group.hidden = false;
+  group.setAttribute("aria-hidden", String(!visible));
 
   if (visible) {
-    group.hidden = false;
     // Delay class add by one frame so CSS transitions can run from collapsed state.
     window.requestAnimationFrame(() => {
       group.classList.add("is-visible");
@@ -348,16 +626,6 @@ function setUserHostFieldVisibility(visible) {
   }
 
   group.classList.remove("is-visible");
-
-  const onTransitionEnd = (event) => {
-    if (event.propertyName !== "max-height") return;
-    if (!group.classList.contains("is-visible")) {
-      group.hidden = true;
-    }
-    group.removeEventListener("transitionend", onTransitionEnd);
-  };
-
-  group.addEventListener("transitionend", onTransitionEnd);
 }
 
 function enterCustomPromptMode() {
@@ -385,17 +653,25 @@ function getFirstLineTextNode() {
   return next?.nodeType === Node.TEXT_NODE ? next : null;
 }
 
-function detectPlaceholderActive() {
+function getFirstLineState() {
   const textNode = getFirstLineTextNode();
-  if (!textNode) return false;
-  return firstLinePlaceholders.has(
-    textNode.textContent.replace(/\u00a0/g, " ").trim(),
-  );
+  return {
+    textNode,
+    placeholderActive:
+      Boolean(textNode) &&
+      firstLinePlaceholders.has(
+        textNode.textContent.replace(/\u00a0/g, " ").trim(),
+      ),
+  };
+}
+
+function detectPlaceholderActive() {
+  return getFirstLineState().placeholderActive;
 }
 
 function normalizeInitialPlaceholderLine() {
-  const textNode = getFirstLineTextNode();
-  if (textNode && detectPlaceholderActive()) {
+  const { textNode, placeholderActive } = getFirstLineState();
+  if (textNode && placeholderActive) {
     textNode.textContent = firstLinePlaceholder;
   }
 }
@@ -407,7 +683,7 @@ function isPlaceholderActive() {
 function setCaretAfterFirstPrompt() {
   const prompt = firstPrompt();
   if (!prompt) return;
-  const sel = window.getSelection();
+  const sel = getActiveSelection() || window.getSelection();
   if (!sel) return;
   const range = document.createRange();
   range.setStartAfter(prompt);
@@ -464,7 +740,7 @@ function applyPlaceholderWordStyling() {
 }
 
 function getCaretOffset(rootNode) {
-  const sel = window.getSelection();
+  const sel = getActiveSelection();
   if (!sel?.rangeCount) return -1;
   const range = sel.getRangeAt(0);
   if (!rootNode.contains(range.startContainer)) return -1;
@@ -513,29 +789,33 @@ function setCaretOffset(rootNode, target) {
     const range = document.createRange();
     range.setStart(found.node, found.offset);
     range.collapse(true);
-    const sel = window.getSelection();
+    const sel = getActiveSelection() || window.getSelection();
     sel.removeAllRanges();
     sel.addRange(range);
   } catch (_) {}
 }
 
-function updateCommandWords() {
-  if (state.editorMode !== "terminal") return;
-
-  const caret = getCaretOffset(refs.terminalContent);
-  const initialPrompt = firstPrompt();
-
+function clearCommandWordSpans() {
   refs.terminalContent.querySelectorAll(".cmd-word").forEach((span) => {
     span.replaceWith(document.createTextNode(span.textContent));
   });
   refs.terminalContent.normalize();
+}
+
+function updateCommandWords() {
+  if (!isTerminalMode()) return;
+
+  const caret = getCaretOffset(refs.terminalContent);
+  const initialPrompt = firstPrompt();
+
+  clearCommandWordSpans();
 
   if (isPlaceholderActive()) {
     applyPlaceholderWordStyling();
   }
 
   if (state.cmdWordEnabled) {
-    refs.terminalContent.querySelectorAll(".first-char").forEach((prompt) => {
+    getPromptNodes().forEach((prompt) => {
       if (isPlaceholderActive() && prompt === initialPrompt) return;
       const next = prompt.nextSibling;
       if (!next || next.nodeType !== Node.TEXT_NODE) return;
@@ -566,6 +846,13 @@ function syncCodeScroll() {
   codeView.scrollLeft = refs.codeInput.scrollLeft;
 }
 
+function finalizeCodeRender(language) {
+  state.detectedCodeLanguage = language;
+  updateCodeModeTitle();
+  syncCodeScroll();
+  queueAutoExtendTerminalHeight();
+}
+
 function renderCodeMode() {
   if (!refs.codeOutput || !refs.codeInput) return;
 
@@ -573,45 +860,31 @@ function renderCodeMode() {
   refs.codeOutput.className = "code-output hljs";
 
   if (!source) {
-    state.detectedCodeLanguage = "auto";
     refs.codeOutput.textContent = " ";
-    updateCodeModeTitle();
-    syncCodeScroll();
-    queueAutoExtendTerminalHeight();
+    finalizeCodeRender("auto");
     return;
   }
 
   if (!window.hljs) {
-    state.detectedCodeLanguage = state.codeLanguage;
     refs.codeOutput.textContent = source;
-    updateCodeModeTitle();
-    syncCodeScroll();
-    queueAutoExtendTerminalHeight();
+    finalizeCodeRender(state.codeLanguage);
     return;
   }
 
   if (state.codeLanguage === "auto") {
     const result = window.hljs.highlightAuto(source);
-    state.detectedCodeLanguage = result.language || "plaintext";
     refs.codeOutput.innerHTML = result.value;
-    updateCodeModeTitle();
-    syncCodeScroll();
-    queueAutoExtendTerminalHeight();
+    finalizeCodeRender(result.language || "plaintext");
     return;
   }
 
-  state.detectedCodeLanguage = state.codeLanguage;
   refs.codeOutput.classList.add(`language-${state.codeLanguage}`);
   refs.codeOutput.textContent = source;
   window.hljs.highlightElement(refs.codeOutput);
-  updateCodeModeTitle();
-  syncCodeScroll();
-  queueAutoExtendTerminalHeight();
+  finalizeCodeRender(state.codeLanguage);
 }
 
 function applyEditorMode(mode) {
-  const controlsStartHeight =
-    refs.controls?.getBoundingClientRect().height || 0;
   const previousMode = state.editorMode;
   const resolvedMode = mode === "code" ? "code" : "terminal";
   state.editorMode = resolvedMode;
@@ -634,26 +907,20 @@ function applyEditorMode(mode) {
 
   if (previousMode === "code" && resolvedMode === "terminal") {
     refs.title.textContent = state.terminalTitle;
-    state.titleUsesDefault = refs.title.textContent === getDefaultTitle();
+    updateTitleUsesDefault();
   }
 
-  if (resolvedMode === "code") {
+  if (isCodeMode()) {
     renderCodeMode();
     refs.title.setAttribute("aria-label", "Detected code language");
     syncTextColorControls();
     syncTitleVisibilityForCurrentMode();
-    if (previousMode !== resolvedMode) {
-      animateControlsModeSwitch(controlsStartHeight);
-    }
     return;
   }
 
   refs.title.setAttribute("aria-label", "Terminal title");
   syncTextColorControls();
   syncTitleVisibilityForCurrentMode();
-  if (previousMode !== resolvedMode) {
-    animateControlsModeSwitch(controlsStartHeight);
-  }
 
   updateCommandWords();
 }
@@ -687,8 +954,15 @@ function bindColorInput(input, cssVar) {
   });
 }
 
+function bindNumericInput(input, min, max, apply) {
+  input.addEventListener("input", ({ target }) => {
+    const value = clamp(Number(target.value), min, max);
+    if (value) apply(value);
+  });
+}
+
 function clearCurrentContent() {
-  if (state.editorMode === "code") {
+  if (isCodeMode()) {
     refs.codeInput.value = "";
     renderCodeMode();
     refs.codeInput.focus();
@@ -697,13 +971,8 @@ function clearCurrentContent() {
   }
 
   refs.terminalContent.replaceChildren();
-
-  const prompt = document.createElement("span");
-  prompt.className = "first-char";
-  prompt.textContent = state.promptPrefix;
-
   refs.terminalContent.append(
-    prompt,
+    createPromptNode(),
     document.createTextNode(firstLinePlaceholder),
   );
   state.firstLineHasPlaceholder = true;
@@ -726,12 +995,12 @@ function resetControls() {
   refs.fontFamilyInput.value = defaults.fontFamily;
   setCssVar("--terminal-font-size", `${defaults.fontSize}px`);
   setCssVar("--terminal-font-family", defaults.fontFamily);
+  syncFontVariantOptions(defaults.fontVariant);
   applyWordWrap(defaults.wordWrapEnabled);
 
   refs.textColorInput.value = defaults.textColor;
   refs.bgColorInput.value = defaults.bgColor;
-  setCssVar("--terminal-text", defaults.textColor);
-  setCssVar("--code-plain-text", defaults.textColor);
+  setTextColors(defaults.textColor);
   setCssVar("--terminal-bg", defaults.bgColor);
   state.codeTextColorEnabled = defaults.codeTextColorEnabled;
 
@@ -746,8 +1015,7 @@ function resetControls() {
     refs.userInput.value = defaults.user;
     refs.hostInput.value = defaults.host;
     setUserHostFieldVisibility(defaults.userHostEnabled);
-    refs.userInput.disabled = !defaults.userHostEnabled;
-    refs.hostInput.disabled = !defaults.userHostEnabled;
+    setUserHostInputsEnabled(defaults.userHostEnabled);
 
     refs.promptColorInput.value = defaults.promptColor;
     setCssVar("--terminal-prompt", defaults.promptColor);
@@ -784,7 +1052,7 @@ function resetControls() {
 
 function initTitleEditing() {
   refs.title.addEventListener("click", () => {
-    if (state.editorMode === "code") return;
+    if (isCodeMode()) return;
 
     const currentText = refs.title.textContent;
     const input = document.createElement("input");
@@ -797,7 +1065,7 @@ function initTitleEditing() {
 
     function commit() {
       refs.title.textContent = input.value.trim();
-      state.titleUsesDefault = refs.title.textContent === getDefaultTitle();
+      updateTitleUsesDefault();
       state.terminalTitle = refs.title.textContent;
       input.replaceWith(refs.title);
     }
@@ -817,24 +1085,22 @@ function initTitleEditing() {
 }
 
 function initTerminalInput() {
-  refs.terminalContent.addEventListener("click", () => {
-    if (state.editorMode !== "terminal") return;
+  const keepPlaceholderCaret = () => {
+    if (!isTerminalMode()) return;
     if (isPlaceholderActive()) setCaretAfterFirstPrompt();
-  });
+  };
 
-  refs.terminalContent.addEventListener("focus", () => {
-    if (state.editorMode !== "terminal") return;
-    if (isPlaceholderActive()) setCaretAfterFirstPrompt();
-  });
+  refs.terminalContent.addEventListener("click", keepPlaceholderCaret);
+  refs.terminalContent.addEventListener("focus", keepPlaceholderCaret);
 
   refs.terminalContent.addEventListener("keydown", (event) => {
-    if (state.editorMode !== "terminal") return;
+    if (!isTerminalMode()) return;
 
     if (event.key === "Tab") {
       event.preventDefault();
 
-      const sel = window.getSelection();
-      if (!sel?.rangeCount) return;
+      const sel = getActiveSelection();
+      if (!sel) return;
 
       const range = sel.getRangeAt(0);
       range.deleteContents();
@@ -843,9 +1109,7 @@ function initTerminalInput() {
       range.insertNode(tabText);
       range.setStartAfter(tabText);
       range.collapse(true);
-
-      sel.removeAllRanges();
-      sel.addRange(range);
+      setSelectionRange(range, sel);
       updateCommandWords();
       queueAutoExtendTerminalHeight();
       return;
@@ -854,8 +1118,8 @@ function initTerminalInput() {
     if (event.key !== "Enter") return;
     event.preventDefault();
 
-    const sel = window.getSelection();
-    if (!sel?.rangeCount) return;
+    const sel = getActiveSelection();
+    if (!sel) return;
 
     const range = sel.getRangeAt(0);
     range.deleteContents();
@@ -865,20 +1129,16 @@ function initTerminalInput() {
     range.setStartAfter(newline);
     range.collapse(true);
 
-    const prompt = document.createElement("span");
-    prompt.className = "first-char";
-    prompt.textContent = state.promptPrefix;
+    const prompt = createPromptNode();
     range.insertNode(prompt);
     range.setStartAfter(prompt);
     range.collapse(true);
-
-    sel.removeAllRanges();
-    sel.addRange(range);
+    setSelectionRange(range, sel);
     queueAutoExtendTerminalHeight();
   });
 
   refs.terminalContent.addEventListener("beforeinput", (event) => {
-    if (state.editorMode !== "terminal") return;
+    if (!isTerminalMode()) return;
 
     if (
       isPlaceholderActive() &&
@@ -891,8 +1151,8 @@ function initTerminalInput() {
 
     if (event.inputType !== "insertText" || !event.data) return;
 
-    const sel = window.getSelection();
-    if (!sel?.rangeCount) return;
+    const sel = getActiveSelection();
+    if (!sel) return;
     const { startContainer, startOffset } = sel.getRangeAt(0);
 
     let promptSpan = null;
@@ -917,15 +1177,14 @@ function initTerminalInput() {
     range.insertNode(text);
     range.setStartAfter(text);
     range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
+    setSelectionRange(range, sel);
   });
 
   refs.terminalContent.addEventListener("input", () => {
-    if (state.editorMode !== "terminal") return;
+    if (!isTerminalMode()) return;
 
-    const sel = window.getSelection();
-    if (!sel?.rangeCount) return;
+    const sel = getActiveSelection();
+    if (!sel) return;
 
     let anchor = sel.getRangeAt(0).startContainer;
     let offset = sel.getRangeAt(0).startOffset;
@@ -949,8 +1208,7 @@ function initTerminalInput() {
         const range = document.createRange();
         range.setStart(anchor, offset);
         range.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(range);
+        setSelectionRange(range, sel);
       } catch (_) {}
     }
 
@@ -961,9 +1219,9 @@ function initTerminalInput() {
 
 function initEditorTabs() {
   refs.modeTabs.forEach((button) => {
-    button.addEventListener("click", () => {
-      applyEditorMode(button.dataset.editorMode);
-    });
+    button.addEventListener("click", () =>
+      applyEditorMode(button.dataset.editorMode),
+    );
   });
 }
 
@@ -988,110 +1246,99 @@ function initCodeInput() {
     renderCodeMode();
     queueAutoExtendTerminalHeight();
   });
-
-  refs.codeInput.addEventListener("scroll", () => {
-    syncCodeScroll();
-  });
+  refs.codeInput.addEventListener("scroll", syncCodeScroll);
 }
 
 function initControls() {
   bindColorInput(refs.promptColorInput, "--terminal-prompt");
   bindColorInput(refs.bgColorInput, "--terminal-bg");
   bindColorInput(refs.commandColorInput, "--command-color");
-
-  refs.textColorInput.addEventListener("input", (event) => {
-    setCssVar("--terminal-text", event.target.value);
-    setCssVar("--code-plain-text", event.target.value);
+  bindNumericInput(refs.widthInput, 320, 1400, (value) => {
+    refs.terminal.style.width = `${value}px`;
   });
-
-  refs.widthInput.addEventListener("input", (event) => {
-    const value = Math.max(320, Math.min(1400, Number(event.target.value)));
-    if (value) refs.terminal.style.width = `${value}px`;
+  bindNumericInput(refs.heightInput, 180, 900, (value) => {
+    refs.terminal.style.height = `${value}px`;
   });
-
-  refs.heightInput.addEventListener("input", (event) => {
-    const value = Math.max(180, Math.min(900, Number(event.target.value)));
-    if (value) refs.terminal.style.height = `${value}px`;
-  });
-
-  refs.fontSizeInput.addEventListener("input", (event) => {
-    const value = Math.max(10, Math.min(32, Number(event.target.value)));
-    if (value) {
-      setCssVar("--terminal-font-size", `${value}px`);
-      queueAutoExtendTerminalHeight();
-    }
-  });
-
-  refs.fontFamilyInput.addEventListener("change", (event) => {
-    setCssVar("--terminal-font-family", event.target.value);
+  bindNumericInput(refs.fontSizeInput, 10, 32, (value) => {
+    setCssVar("--terminal-font-size", `${value}px`);
     queueAutoExtendTerminalHeight();
   });
 
-  refs.wordWrapInput.addEventListener("change", (event) => {
-    applyWordWrap(event.target.checked);
+  refs.textColorInput.addEventListener("input", (e) =>
+    setTextColors(e.target.value),
+  );
+
+  refs.fontFamilyInput.addEventListener("change", (event) => {
+    const previousVariant = state.fontVariant;
+    setCssVar("--terminal-font-family", event.target.value);
+    syncFontVariantOptions(previousVariant, { warnOnFallback: true });
+    queueAutoExtendTerminalHeight();
   });
 
-  refs.titleTextVisibleInput.addEventListener("change", (event) => {
-    setCurrentModeTitleVisibility(event.target.checked);
+  refs.fontVariantInput.addEventListener("change", (e) => {
+    applyFontVariant(e.target.value);
+    setFontStyleWarning("");
+    queueAutoExtendTerminalHeight();
   });
+  refs.wordWrapInput.addEventListener("change", (e) =>
+    applyWordWrap(e.target.checked),
+  );
+  refs.titleTextVisibleInput.addEventListener("change", (e) =>
+    setCurrentModeTitleVisibility(e.target.checked),
+  );
+  refs.promptStyleInput.addEventListener("change", (e) =>
+    e.target.value === "custom"
+      ? enterCustomPromptMode()
+      : syncPromptWithSelectedOption(),
+  );
 
-  refs.promptStyleInput.addEventListener("change", (event) => {
-    if (event.target.value === "custom") {
-      enterCustomPromptMode();
-      return;
-    }
-    syncPromptWithSelectedOption();
-  });
-
-  refs.promptStyleCustomInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      refs.promptStyleCustomInput.blur();
-      return;
-    }
-    if (event.key === "Escape") {
+  refs.promptStyleCustomInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape")
       refs.promptStyleCustomInput.value = state.customPrompt;
-      event.preventDefault();
+    if (e.key === "Enter" || e.key === "Escape") {
+      e.preventDefault();
       refs.promptStyleCustomInput.blur();
     }
   });
+  refs.promptStyleCustomInput.addEventListener("blur", () =>
+    exitCustomPromptMode(true),
+  );
 
-  refs.promptStyleCustomInput.addEventListener("blur", () => {
-    exitCustomPromptMode(true);
-  });
-
-  refs.userHostEnabledInput.addEventListener("change", (event) => {
-    setUserHostFieldVisibility(event.target.checked);
-    refs.userInput.disabled = !event.target.checked;
-    refs.hostInput.disabled = !event.target.checked;
+  refs.userHostEnabledInput.addEventListener("change", (e) => {
+    setUserHostFieldVisibility(e.target.checked);
+    setUserHostInputsEnabled(e.target.checked);
     syncUserHostBindings();
   });
 
-  [refs.userInput, refs.hostInput].forEach((input) => {
-    input.addEventListener("input", () => {
-      syncUserHostBindings();
-    });
-  });
+  [refs.userInput, refs.hostInput].forEach((el) =>
+    el.addEventListener("input", syncUserHostBindings),
+  );
 
-  refs.cmdWordInput.addEventListener("change", (event) => {
-    state.cmdWordEnabled = event.target.checked;
+  refs.cmdWordInput.addEventListener("change", (e) => {
+    state.cmdWordEnabled = e.target.checked;
     refs.commandColorInput.disabled = !state.cmdWordEnabled;
     updateCommandWords();
   });
-
-  refs.codeLanguageInput.addEventListener("change", (event) => {
-    state.codeLanguage = event.target.value;
+  refs.codeLanguageInput.addEventListener("change", (e) => {
+    state.codeLanguage = e.target.value;
     renderCodeMode();
   });
-
-  refs.codeThemeInput.addEventListener("change", (event) => {
-    applyCodeTheme(event.target.value);
-  });
-
-  refs.codeTextColorEnabledInput.addEventListener("change", (event) => {
-    state.codeTextColorEnabled = event.target.checked;
+  refs.codeThemeInput.addEventListener("change", (e) =>
+    applyCodeTheme(e.target.value),
+  );
+  refs.codeTextColorEnabledInput.addEventListener("change", (e) => {
+    state.codeTextColorEnabled = e.target.checked;
     syncTextColorControls();
   });
+
+  const showFontVariantTooltip = () => {
+    if (!refs.fontVariantLabel?.classList.contains("is-error")) return;
+    showFloatingTooltipForLabel(refs.fontVariantLabel);
+  };
+  ["mouseenter", "mousemove"].forEach((ev) =>
+    refs.fontVariantLabel?.addEventListener(ev, showFontVariantTooltip),
+  );
+  refs.fontVariantLabel?.addEventListener("mouseleave", hideFloatingTooltip);
 
   refs.resetButton.addEventListener("click", resetControls);
   refs.clearButton.addEventListener("click", clearCurrentContent);
@@ -1145,10 +1392,12 @@ function initSaveButton() {
 function initModeToggle() {
   applyMode("system");
   refs.modeToggle.addEventListener("click", () => {
-    const currentMode = refs.modeToggle.dataset.mode || "system";
-    const nextMode =
-      modeOrder[(modeOrder.indexOf(currentMode) + 1) % modeOrder.length];
-    applyMode(nextMode);
+    applyMode(
+      modeOrder[
+        (modeOrder.indexOf(refs.modeToggle.dataset.mode || "system") + 1) %
+          modeOrder.length
+      ],
+    );
   });
 }
 
@@ -1157,13 +1406,16 @@ function init() {
   normalizeInitialPlaceholderLine();
   state.firstLineHasPlaceholder = detectPlaceholderActive();
   setCssVar("--command-color", refs.commandColorInput.value);
-  setCssVar("--code-plain-text", refs.textColorInput.value);
+  setTextColors(refs.textColorInput.value);
+  setCssVar("--terminal-font-family", refs.fontFamilyInput.value);
+  syncFontVariantOptions(defaults.fontVariant);
   applyWordWrap(refs.wordWrapInput.checked);
   refs.codeLanguageInput.value = state.codeLanguage;
   applyCodeTheme(defaults.codeTheme);
   refs.codeInput.value = defaults.codeSnippet;
   state.terminalTitle = refs.title.textContent;
   setUserHostFieldVisibility(refs.userHostEnabledInput.checked);
+  setUserHostInputsEnabled(refs.userHostEnabledInput.checked);
   syncUserHostBindings();
   initEditorTabs();
   initTerminalInput();
@@ -1176,6 +1428,7 @@ function init() {
   syncTitleVisibilityForCurrentMode();
   renderCodeMode();
   updateCommandWords();
+  queueAutoExtendTerminalHeight();
 }
 
 init();
