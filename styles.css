@@ -435,7 +435,16 @@ body[data-editor-mode="code"] .mode-terminal-only {
   color: var(--terminal-command);
 }
 
-.save-button {
+.export-actions {
+  justify-self: center;
+  align-self: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.save-button,
+.copy-html-button {
   justify-self: center;
   align-self: center;
   display: inline-flex;
@@ -456,11 +465,13 @@ body[data-editor-mode="code"] .mode-terminal-only {
     color 640ms ease;
 }
 
-.save-button:hover {
+.save-button:hover,
+.copy-html-button:hover {
   background: var(--button-background-hover);
 }
 
-.save-button i {
+.save-button i,
+.copy-html-button i {
   font-weight: 600;
 }
 
