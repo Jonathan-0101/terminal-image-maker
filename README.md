@@ -1,6 +1,6 @@
 # MacOS style terminal image generator
 
-This is a simple tool that can be used to quickly create custom images in the style of a MacOS terminal.
+![Cover Image](./images/cover-image.png)
 
 ## Config options
 
