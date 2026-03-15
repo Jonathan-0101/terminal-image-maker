@@ -4,13 +4,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Terminal Screenshot</title>
+  <title>Terminal Screenshoter</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" id="highlight-theme-link"
+    href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/base16/gruvbox-light-soft.min.css">
 </head>
 
 <body>
@@ -34,10 +36,23 @@
       <span class="window-control green"></span>
       <span class="title">user@host:~$</span>
     </div>
-    <pre class="content" contenteditable="true"><span class="first-char">~ $ </span>type here...</pre>
+    <div class="terminal-main">
+      <pre class="content terminal-content"
+        contenteditable="true"><span class="first-char">~ $ </span>type here...</pre>
+      <div class="code-layer" aria-hidden="true">
+        <pre class="code-content" aria-hidden="true"><code class="code-output" id="code-output"></code></pre>
+        <textarea class="code-input" id="code-input" spellcheck="false" placeholder="// type code here"></textarea>
+      </div>
+    </div>
   </div>
 
   <div class="controls">
+    <div class="control-tabs" role="tablist" aria-label="Editor mode">
+      <button class="control-tab is-active" id="ctrl-tab-terminal" role="tab" type="button" aria-selected="true"
+        data-editor-mode="terminal">Terminal</button>
+      <button class="control-tab" id="ctrl-tab-code" role="tab" type="button" aria-selected="false"
+        data-editor-mode="code">Code</button>
+    </div>
     <label class="control-item">
       <span class="control-label">Width</span>
       <input class="control-input" id="ctrl-width" type="number" value="600" min="320" max="1400" step="10">
@@ -59,8 +74,34 @@
         <option value="'Courier New', Courier, monospace">Courier New</option>
       </select>
     </label>
+    <label class="control-item control-item-checkbox">
+      <span class="control-checkbox-row">
+        <input type="checkbox" id="ctrl-word-wrap" class="control-checkbox" checked>
+        <span class="control-checkbox-text">Wrap long lines</span>
+      </span>
+    </label>
+    <label class="control-item control-item-checkbox">
+      <span class="control-checkbox-row">
+        <input type="checkbox" id="ctrl-title-text-visible" class="control-checkbox" checked>
+        <span class="control-checkbox-text">Show title text</span>
+      </span>
+    </label>
     <div class="control-divider"></div>
-    <label class="control-item">
+    <label class="control-item control-item-checkbox mode-terminal-only">
+      <span class="control-checkbox-row">
+        <input type="checkbox" id="ctrl-user-host-enabled" class="control-checkbox">
+        <span class="control-checkbox-text">Custom user / host</span>
+      </span>
+    </label>
+    <div class="user-host-group mode-terminal-only" id="ctrl-user-host-group" hidden>
+      <label class="control-item" id="ctrl-user-field">
+        <input class="control-input" id="ctrl-user" type="text" value="user" disabled>
+      </label>
+      <label class="control-item" id="ctrl-host-field">
+        <input class="control-input" id="ctrl-host" type="text" value="host" disabled>
+      </label>
+    </div>
+    <label class="control-item mode-terminal-only">
       <span class="control-label">Line start</span>
       <select class="control-select" id="ctrl-prompt-style">
         <option value="~ $ ">~ $</option>
@@ -79,30 +120,69 @@
       <input class="control-select" id="ctrl-prompt-style-custom" type="text" placeholder="type custom line start"
         hidden>
     </label>
-    <div class="control-divider"></div>
-    <label class="control-item control-item-checkbox">
-      <span class="control-label">User and host</span>
-      <span class="control-checkbox-row">
-        <input type="checkbox" id="ctrl-user-host-enabled" class="control-checkbox">
-        <span class="control-checkbox-text">Use custom values</span>
-      </span>
+    <label class="control-item mode-code-only">
+      <span class="control-label">Language</span>
+      <select class="control-select" id="ctrl-code-language">
+        <option value="auto">Auto detect</option>
+        <option value="plaintext">Plain text</option>
+        <option value="bash">Bash</option>
+        <option value="c">C</option>
+        <option value="cpp">C++</option>
+        <option value="csharp">C#</option>
+        <option value="css">CSS</option>
+        <option value="dart">Dart</option>
+        <option value="diff">Diff</option>
+        <option value="dockerfile">Dockerfile</option>
+        <option value="go">Go</option>
+        <option value="graphql">GraphQL</option>
+        <option value="html">HTML</option>
+        <option value="ini">INI</option>
+        <option value="javascript">JavaScript</option>
+        <option value="jsx">JSX</option>
+        <option value="java">Java</option>
+        <option value="kotlin">Kotlin</option>
+        <option value="lua">Lua</option>
+        <option value="typescript">TypeScript</option>
+        <option value="tsx">TSX</option>
+        <option value="python">Python</option>
+        <option value="markdown">Markdown</option>
+        <option value="php">PHP</option>
+        <option value="powershell">PowerShell</option>
+        <option value="ruby">Ruby</option>
+        <option value="rust">Rust</option>
+        <option value="scala">Scala</option>
+        <option value="shell">Shell</option>
+        <option value="sql">SQL</option>
+        <option value="swift">Swift</option>
+        <option value="toml">TOML</option>
+        <option value="xml">XML</option>
+        <option value="yaml">YAML</option>
+      </select>
     </label>
-    <div class="user-host-group" id="ctrl-user-host-group" hidden>
-      <label class="control-item" id="ctrl-user-field">
-        <span class="control-label">User</span>
-        <input class="control-input" id="ctrl-user" type="text" value="user" disabled>
-      </label>
-      <label class="control-item" id="ctrl-host-field">
-        <span class="control-label">Host</span>
-        <input class="control-input" id="ctrl-host" type="text" value="host" disabled>
-      </label>
-    </div>
+    <label class="control-item mode-code-only">
+      <span class="control-label">Code theme</span>
+      <select class="control-select" id="ctrl-code-theme">
+        <option value="gruvbox-light-soft">Gruvbox Light Soft</option>
+        <option value="github">GitHub</option>
+        <option value="github-dark">GitHub Dark</option>
+        <option value="atom-one-light">Atom One Light</option>
+        <option value="atom-one-dark">Atom One Dark</option>
+        <option value="night-owl">Night Owl</option>
+        <option value="tokyo-night-dark">Tokyo Night Dark</option>
+        <option value="monokai">Monokai</option>
+        <option value="dracula">Dracula</option>
+        <option value="nord">Nord</option>
+        <option value="stackoverflow-light">StackOverflow Light</option>
+        <option value="stackoverflow-dark">StackOverflow Dark</option>
+        <option value="xcode">Xcode</option>
+      </select>
+    </label>
     <div class="control-divider"></div>
-    <label class="control-item">
+    <label class="control-item mode-terminal-only">
       <span class="control-label">Prompt colour</span>
       <input class="control-color" id="ctrl-color-prompt" type="color" value="#ffffff">
     </label>
-    <div class="control-item">
+    <div class="control-item mode-terminal-only">
       <span class="control-label">Command colour</span>
       <div class="control-cmd-row">
         <label class="control-cmd-toggle">
@@ -113,14 +193,22 @@
     </div>
     <label class="control-item">
       <span class="control-label">Text colour</span>
-      <input class="control-color" id="ctrl-color-text" type="color" value="#999999">
+      <div class="control-cmd-row">
+        <label class="control-cmd-toggle mode-code-only">
+          <input type="checkbox" id="ctrl-code-text-color-enabled" class="control-checkbox">
+        </label>
+        <input class="control-color control-color-cmd" id="ctrl-color-text" type="color" value="#999999">
+      </div>
     </label>
     <label class="control-item">
       <span class="control-label">Terminal colour</span>
       <input class="control-color" id="ctrl-color-bg" type="color" value="#1e1e1e">
     </label>
     <div class="control-divider"></div>
-    <button class="control-reset" id="ctrl-reset" type="button">Reset defaults</button>
+    <div class="control-actions">
+      <button class="control-reset" id="ctrl-reset" type="button">Reset</button>
+      <button class="control-reset" id="ctrl-clear" type="button">Clear</button>
+    </div>
   </div>
 
   <button class="save-button" type="button">
@@ -129,6 +217,7 @@
   </button>
 
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
   <script defer src="./script.js"></script>
 </body>
 
