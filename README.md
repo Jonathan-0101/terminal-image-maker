@@ -1,6 +1,6 @@
 # MacOS style terminal image generator
 
-[Cover Image](./images/cover-image.png)
+![Cover Image](./images/cover-image.png)
 
 ## Config options
 
