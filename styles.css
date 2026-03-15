@@ -28,6 +28,8 @@
   --ctrl-fg: #111111;
   --ctrl-ring: #0000001a;
   --ctrl-panel-bg: #f4efe4f2;
+  --github-corner-bg: #2d2d2d;
+  --github-corner-fg: #f4efe4f2;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -44,6 +46,8 @@
     --ctrl-fg: #eeeeee;
     --ctrl-ring: #ffffff1f;
     --ctrl-panel-bg: #161616f2;
+    --github-corner-bg: #f4efe4f2;
+    --github-corner-fg: #2d2d2d;
   }
 }
 
@@ -61,6 +65,8 @@ body.light-mode {
   --ctrl-fg: #111111;
   --ctrl-ring: #0000001a;
   --ctrl-panel-bg: #f4efe4f2;
+  --github-corner-bg: #2d2d2d;
+  --github-corner-fg: #f4efe4f2;
 }
 
 body.dark-mode {
@@ -77,6 +83,8 @@ body.dark-mode {
   --ctrl-fg: #eeeeee;
   --ctrl-ring: #ffffff1f;
   --ctrl-panel-bg: #161616f2;
+  --github-corner-bg: #f4efe4f2;
+  --github-corner-fg: #2d2d2d;
 }
 
 body {
@@ -115,6 +123,47 @@ body[data-editor-mode="code"] .mode-terminal-only {
   position: fixed;
   right: 24px;
   z-index: 10;
+}
+
+.github-corner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  border: 0;
+  z-index: 11;
+  color: var(--github-corner-fg);
+}
+
+.github-corner svg {
+  display: block;
+  fill: var(--github-corner-bg);
+  color: var(--github-corner-fg);
+  transform: scale(-1, 1);
+}
+
+.github-corner .octo-arm {
+  transform-origin: 130px 106px;
+}
+
+.github-corner:hover .octo-arm {
+  animation: octocat-wave 560ms ease-in-out;
+}
+
+@keyframes octocat-wave {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+
+  20%,
+  60% {
+    transform: rotate(-25deg);
+  }
+
+  40%,
+  80% {
+    transform: rotate(10deg);
+  }
 }
 
 .color-mode {
@@ -739,5 +788,15 @@ body[data-editor-mode="code"] .mode-terminal-only {
     top: 76px;
     right: 16px;
     max-height: calc(100vh - 92px);
+  }
+}
+
+@media (max-width: 500px) {
+  .github-corner:hover .octo-arm {
+    animation: none;
+  }
+
+  .github-corner .octo-arm {
+    animation: octocat-wave 560ms ease-in-out;
   }
 }
