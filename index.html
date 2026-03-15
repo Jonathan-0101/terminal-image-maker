@@ -17,6 +17,20 @@
 </head>
 
 <body>
+  <!-- https://tholman.com/github-corners/ -->
+  <a href="https://github.com/Jonathan-0101/terminal-image-maker" class="github-corner"
+    aria-label="View source on GitHub" target="_blank" rel="noopener noreferrer">
+    <svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true">
+      <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z" />
+      <path
+        d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+        fill="currentColor" class="octo-arm" />
+      <path
+        d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+        fill="currentColor" class="octo-body" />
+    </svg>
+  </a>
+
   <div class="color-mode">
     <button class="mode-toggle" type="button" aria-label="Use system colour mode" aria-pressed="mixed"
       data-mode="system">
@@ -30,21 +44,56 @@
     </button>
   </div>
 
-  <div class="terminal">
-    <div class="titlebar">
-      <span class="window-control red"></span>
-      <span class="window-control yellow"></span>
-      <span class="window-control green"></span>
-      <span class="title">user@host:~$</span>
-    </div>
-    <div class="terminal-main">
-      <pre class="content terminal-content"
-        contenteditable="true"><span class="first-char">~ $ </span>type here...</pre>
-      <div class="code-layer" aria-hidden="true">
-        <pre class="code-content" aria-hidden="true"><code class="code-output" id="code-output"></code></pre>
-        <textarea class="code-input" id="code-input" spellcheck="false" placeholder="// type code here"></textarea>
+  <div class="preview-stage">
+    <div class="terminal-preview" id="terminal-preview">
+      <div class="terminal-preview-backdrop" aria-hidden="true"></div>
+      <div class="terminal">
+        <div class="titlebar">
+          <span class="window-control red"></span>
+          <span class="window-control yellow"></span>
+          <span class="window-control green"></span>
+          <span class="title">user@host:~$</span>
+        </div>
+        <div class="terminal-main">
+          <pre class="content terminal-content"
+            contenteditable="true"><span class="first-char">~ $ </span>type here...</pre>
+          <div class="code-layer" aria-hidden="true">
+            <pre class="code-content" aria-hidden="true"><code class="code-output" id="code-output"></code></pre>
+            <textarea class="code-input" id="code-input" spellcheck="false" placeholder="// type code here"></textarea>
+          </div>
+        </div>
       </div>
     </div>
+
+    <section class="preview-appearance-panel" id="ctrl-preview-appearance-panel"
+      aria-label="Preview appearance controls" aria-hidden="true" hidden>
+      <div class="preview-appearance-grid">
+        <label class="control-item control-item-range">
+          <span class="control-label-row">
+            <span class="control-label">Titlebar opacity:</span>
+            <output class="control-range-value" id="ctrl-titlebar-opacity-value"
+              for="ctrl-titlebar-opacity">90%</output>
+          </span>
+          <div class="control-range-row">
+            <input class="control-range" id="ctrl-titlebar-opacity" type="range" value="90" min="35" max="100" step="1">
+          </div>
+        </label>
+        <label class="control-item control-item-range">
+          <span class="control-label-row">
+            <span class="control-label">Terminal opacity:</span>
+            <output class="control-range-value" id="ctrl-terminal-opacity-value"
+              for="ctrl-terminal-opacity">76%</output>
+          </span>
+          <div class="control-range-row">
+            <input class="control-range" id="ctrl-terminal-opacity" type="range" value="76" min="20" max="100" step="1">
+          </div>
+        </label>
+        <label class="control-item">
+          <span class="control-label">Backdrop colour</span>
+          <input class="control-color" id="ctrl-preview-backdrop-color" type="color" value="#d7c4a3">
+        </label>
+      </div>
+    </section>
   </div>
 
   <div class="controls">
@@ -62,6 +111,13 @@
     <label class="control-item">
       <span class="control-label">Height</span>
       <input class="control-input" id="ctrl-height" type="number" value="330" min="180" max="900" step="10">
+    </label>
+    <label class="control-item control-item-checkbox control-section-toggle">
+      <span class="control-checkbox-row">
+        <input type="checkbox" id="ctrl-preview-transparency-enabled" class="control-checkbox"
+          aria-controls="ctrl-preview-appearance-panel" aria-expanded="false">
+        <span class="control-checkbox-text">Transparent</span>
+      </span>
     </label>
     <div class="control-divider"></div>
     <label class="control-item">
@@ -219,10 +275,16 @@
     </div>
   </div>
 
-  <button class="save-button" type="button">
-    <i class="bi bi-download"></i>
-    <span class="save-label"> Save Terminal Image</span>
-  </button>
+  <div class="export-actions" aria-label="Export options">
+    <button class="copy-html-button" type="button">
+      <i class="bi bi-clipboard"></i>
+      <span class="copy-html-label"> Copy Terminal HTML</span>
+    </button>
+    <button class="save-button" type="button">
+      <i class="bi bi-download"></i>
+      <span class="save-label"> Save Terminal Image</span>
+    </button>
+  </div>
 
   <div class="control-tooltip" id="ctrl-floating-tooltip" role="tooltip" hidden></div>
 

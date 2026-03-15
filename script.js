@@ -3,7 +3,12 @@ const refs = {
   controls: document.querySelector(".controls"),
   saveButton: document.querySelector(".save-button"),
   saveLabel: document.querySelector(".save-label"),
+  copyHtmlButton: document.querySelector(".copy-html-button"),
+  copyHtmlLabel: document.querySelector(".copy-html-label"),
+  exportActions: document.querySelector(".export-actions"),
   modeTabs: document.querySelectorAll(".control-tab[data-editor-mode]"),
+  previewStage: document.querySelector(".preview-stage"),
+  terminalPreview: document.getElementById("terminal-preview"),
   terminal: document.querySelector(".terminal"),
   terminalContent: document.querySelector(".terminal-content"),
   codeLayer: document.querySelector(".code-layer"),
@@ -32,6 +37,19 @@ const refs = {
     "ctrl-code-text-color-enabled",
   ),
   bgColorInput: document.getElementById("ctrl-color-bg"),
+  previewTransparencyEnabledInput: document.getElementById(
+    "ctrl-preview-transparency-enabled",
+  ),
+  previewAppearancePanel: document.getElementById(
+    "ctrl-preview-appearance-panel",
+  ),
+  titlebarOpacityInput: document.getElementById("ctrl-titlebar-opacity"),
+  titlebarOpacityValue: document.getElementById("ctrl-titlebar-opacity-value"),
+  terminalOpacityInput: document.getElementById("ctrl-terminal-opacity"),
+  terminalOpacityValue: document.getElementById("ctrl-terminal-opacity-value"),
+  previewBackdropColorInput: document.getElementById(
+    "ctrl-preview-backdrop-color",
+  ),
   codeLanguageInput: document.getElementById("ctrl-code-language"),
   codeThemeInput: document.getElementById("ctrl-code-theme"),
   highlightThemeLink: document.getElementById("highlight-theme-link"),
@@ -43,6 +61,15 @@ const refs = {
 const root = document.documentElement;
 const exportScale = Math.max(8, window.devicePixelRatio * 2);
 const exportPadding = 24;
+const defaultTitlebarColor = "#2d2d2d";
+const snapshotTextStyleProps = [
+  "color",
+  "fontWeight",
+  "fontStyle",
+  "textDecorationLine",
+  "backgroundColor",
+  "opacity",
+];
 const modeOrder = ["system", "light", "dark"];
 const firstLinePlaceholder = "type here...";
 const firstLinePlaceholders = new Set([firstLinePlaceholder]);
@@ -60,10 +87,14 @@ const defaults = {
   promptColor: "#ffffff",
   textColor: "#999999",
   bgColor: "#1e1e1e",
+  previewTransparencyEnabled: false,
+  titlebarOpacity: 90,
+  terminalOpacity: 76,
+  previewBackdropColor: "#d7c4a3",
   cmdColor: "#08ff02",
   cmdWordEnabled: false,
   wordWrapEnabled: true,
-  codeTextColorEnabled: false,
+  codeTextColorEnabled: true,
   terminalTitleTextVisible: true,
   codeTitleTextVisible: true,
   editorMode: "terminal",
@@ -250,6 +281,10 @@ const state = {
   fontVariant: defaults.fontVariant,
   detectedCodeLanguage: defaults.codeLanguage,
   terminalTitle: defaults.title,
+  previewTransparencyEnabled: defaults.previewTransparencyEnabled,
+  titlebarOpacity: defaults.titlebarOpacity,
+  terminalOpacity: defaults.terminalOpacity,
+  previewBackdropColor: defaults.previewBackdropColor,
 };
 
 let autoExtendTerminalHeightFrame = 0;
@@ -297,6 +332,15 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function toRgbChannels(hexColor) {
+  const match = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hexColor);
+  if (!match) return "0 0 0";
+
+  return [match[1], match[2], match[3]]
+    .map((channel) => Number.parseInt(channel, 16))
+    .join(" ");
+}
+
 function setCssVar(name, value) {
   root.style.setProperty(name, value);
 }
@@ -304,6 +348,80 @@ function setCssVar(name, value) {
 function setTextColors(value) {
   setCssVar("--terminal-text", value);
   setCssVar("--code-plain-text", value);
+}
+
+function setRangeOutput(output, value) {
+  if (!output) return;
+  output.textContent = `${value}%`;
+}
+
+function setPreviewAppearancePanelVisibility(visible) {
+  const panel = refs.previewAppearancePanel;
+  if (!panel) return;
+
+  if (refs.previewStage) {
+    refs.previewStage.classList.toggle("is-preview-controls-visible", visible);
+  }
+
+  panel.hidden = false;
+  panel.setAttribute("aria-hidden", visible ? "false" : "true");
+
+  if (visible) {
+    window.requestAnimationFrame(() => {
+      panel.classList.add("is-visible");
+    });
+
+    return;
+  }
+
+  panel.classList.remove("is-visible");
+}
+
+function syncPreviewControlAvailability() {
+  const enabled = state.previewTransparencyEnabled;
+  refs.previewTransparencyEnabledInput.setAttribute(
+    "aria-expanded",
+    enabled ? "true" : "false",
+  );
+
+  setPreviewAppearancePanelVisibility(enabled);
+
+  refs.titlebarOpacityInput.disabled = !enabled;
+  refs.terminalOpacityInput.disabled = !enabled;
+  refs.previewBackdropColorInput.disabled = !enabled;
+}
+
+function applyPreviewStyles() {
+  const terminalAlpha = state.previewTransparencyEnabled
+    ? clamp(state.terminalOpacity, 20, 100) / 100
+    : 1;
+  const titlebarAlpha = state.previewTransparencyEnabled
+    ? clamp(state.titlebarOpacity, 35, 100) / 100
+    : 1;
+
+  setCssVar(
+    "--terminal-surface-bg",
+    `rgb(${toRgbChannels(refs.bgColorInput.value)} / ${terminalAlpha})`,
+  );
+  setCssVar(
+    "--titlebar-surface-bg",
+    `rgb(${toRgbChannels(defaultTitlebarColor)} / ${titlebarAlpha})`,
+  );
+  setCssVar("--preview-backdrop-color", state.previewBackdropColor);
+
+  if (refs.terminalPreview) {
+    refs.terminalPreview.dataset.previewTransparency =
+      state.previewTransparencyEnabled ? "on" : "off";
+  }
+
+  refs.previewTransparencyEnabledInput.checked =
+    state.previewTransparencyEnabled;
+  refs.titlebarOpacityInput.value = String(state.titlebarOpacity);
+  refs.terminalOpacityInput.value = String(state.terminalOpacity);
+  refs.previewBackdropColorInput.value = state.previewBackdropColor;
+  setRangeOutput(refs.titlebarOpacityValue, state.titlebarOpacity);
+  setRangeOutput(refs.terminalOpacityValue, state.terminalOpacity);
+  syncPreviewControlAvailability();
 }
 
 function setUserHostInputsEnabled(enabled) {
@@ -1002,6 +1120,17 @@ function resetControls() {
   refs.bgColorInput.value = defaults.bgColor;
   setTextColors(defaults.textColor);
   setCssVar("--terminal-bg", defaults.bgColor);
+  setCssVar("--terminal-bg-solid", defaults.bgColor);
+  refs.previewTransparencyEnabledInput.checked =
+    defaults.previewTransparencyEnabled;
+  refs.titlebarOpacityInput.value = String(defaults.titlebarOpacity);
+  refs.terminalOpacityInput.value = String(defaults.terminalOpacity);
+  refs.previewBackdropColorInput.value = defaults.previewBackdropColor;
+  state.previewTransparencyEnabled = defaults.previewTransparencyEnabled;
+  state.titlebarOpacity = defaults.titlebarOpacity;
+  state.terminalOpacity = defaults.terminalOpacity;
+  state.previewBackdropColor = defaults.previewBackdropColor;
+  applyPreviewStyles();
   state.codeTextColorEnabled = defaults.codeTextColorEnabled;
 
   if (activeMode === "terminal") {
@@ -1267,6 +1396,27 @@ function initControls() {
   refs.textColorInput.addEventListener("input", (e) =>
     setTextColors(e.target.value),
   );
+  refs.bgColorInput.addEventListener("input", (event) => {
+    setCssVar("--terminal-bg", event.target.value);
+    setCssVar("--terminal-bg-solid", event.target.value);
+    applyPreviewStyles();
+  });
+  refs.previewTransparencyEnabledInput.addEventListener("change", (event) => {
+    state.previewTransparencyEnabled = event.target.checked;
+    applyPreviewStyles();
+  });
+  refs.titlebarOpacityInput.addEventListener("input", (event) => {
+    state.titlebarOpacity = clamp(Number(event.target.value), 35, 100);
+    applyPreviewStyles();
+  });
+  refs.terminalOpacityInput.addEventListener("input", (event) => {
+    state.terminalOpacity = clamp(Number(event.target.value), 20, 100);
+    applyPreviewStyles();
+  });
+  refs.previewBackdropColorInput.addEventListener("input", (event) => {
+    state.previewBackdropColor = event.target.value;
+    applyPreviewStyles();
+  });
 
   refs.fontFamilyInput.addEventListener("change", (event) => {
     const previousVariant = state.fontVariant;
@@ -1344,7 +1494,310 @@ function initControls() {
   refs.clearButton.addEventListener("click", clearCurrentContent);
 }
 
+function setInlineStyles(node, styles) {
+  Object.entries(styles).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") return;
+    node.style[key] = value;
+  });
+}
+
+function isTransparentColor(value) {
+  return (
+    !value ||
+    value === "transparent" ||
+    value === "rgba(0, 0, 0, 0)" ||
+    value === "rgba(0, 0, 0, 0.0)"
+  );
+}
+
+function getSnapshotDimensions() {
+  const { width, height } = refs.terminal.getBoundingClientRect();
+  return {
+    width: `${Math.round(width)}px`,
+    height: `${Math.round(height)}px`,
+  };
+}
+
+function appendSanitizedTerminalNode(sourceNode, targetParent) {
+  if (sourceNode.nodeType === Node.TEXT_NODE) {
+    targetParent.append(document.createTextNode(sourceNode.textContent || ""));
+    return;
+  }
+
+  if (sourceNode.nodeType !== Node.ELEMENT_NODE) return;
+
+  const tagName = sourceNode.tagName.toLowerCase();
+  if (tagName === "br") {
+    targetParent.append(document.createTextNode("\n"));
+    return;
+  }
+
+  const classList = sourceNode.classList;
+  if (tagName === "span" && classList.contains("first-char")) {
+    const prompt = document.createElement("span");
+    prompt.textContent = sourceNode.textContent || "";
+    setInlineStyles(prompt, { color: getComputedStyle(sourceNode).color });
+    targetParent.append(prompt);
+    return;
+  }
+
+  if (tagName === "span" && classList.contains("cmd-word")) {
+    const commandWord = document.createElement("span");
+    commandWord.textContent = sourceNode.textContent || "";
+    setInlineStyles(commandWord, { color: getComputedStyle(sourceNode).color });
+    targetParent.append(commandWord);
+    return;
+  }
+
+  [...sourceNode.childNodes].forEach((child) =>
+    appendSanitizedTerminalNode(child, targetParent),
+  );
+}
+
+function cloneCodeNodeWithInlineStyles(sourceNode, inheritedStyles = {}) {
+  if (sourceNode.nodeType === Node.TEXT_NODE) {
+    return document.createTextNode(sourceNode.textContent || "");
+  }
+
+  if (sourceNode.nodeType !== Node.ELEMENT_NODE) {
+    return document.createTextNode("");
+  }
+
+  const clone = document.createElement(sourceNode.tagName.toLowerCase());
+  const computed = getComputedStyle(sourceNode);
+  const nextInherited = { ...inheritedStyles };
+
+  snapshotTextStyleProps.forEach((prop) => {
+    const value = computed[prop];
+    const previous = inheritedStyles[prop];
+
+    if (prop === "backgroundColor" && isTransparentColor(value)) {
+      nextInherited[prop] = value;
+      return;
+    }
+
+    if (value && value !== previous) {
+      if (prop === "textDecorationLine") {
+        clone.style.textDecoration = value;
+      } else {
+        clone.style[prop] = value;
+      }
+    }
+
+    nextInherited[prop] = value;
+  });
+
+  [...sourceNode.childNodes].forEach((child) => {
+    clone.append(cloneCodeNodeWithInlineStyles(child, nextInherited));
+  });
+
+  return clone;
+}
+
+function buildTerminalSnapshotHtml() {
+  const terminalStyle = getComputedStyle(refs.terminal);
+  const titlebar = refs.terminal.querySelector(".titlebar");
+  const terminalMain = refs.terminal.querySelector(".terminal-main");
+  const titlebarStyle = titlebar ? getComputedStyle(titlebar) : null;
+  const terminalMainStyle = terminalMain
+    ? getComputedStyle(terminalMain)
+    : terminalStyle;
+  const titleStyle = getComputedStyle(refs.title);
+  const terminalContentStyle = getComputedStyle(refs.terminalContent);
+  const codeContent = refs.codeLayer?.querySelector(".code-content");
+  const codeContentStyle = codeContent
+    ? getComputedStyle(codeContent)
+    : terminalContentStyle;
+  const { width, height } = getSnapshotDimensions();
+
+  const snapshot = document.createElement("div");
+  setInlineStyles(snapshot, {
+    width,
+    height,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    borderRadius: terminalStyle.borderRadius,
+    background: terminalMainStyle.backgroundColor,
+    color: terminalStyle.color,
+    fontFamily: terminalContentStyle.fontFamily,
+    boxShadow: terminalStyle.boxShadow,
+  });
+
+  const titlebarNode = document.createElement("div");
+  setInlineStyles(titlebarNode, {
+    display: "flex",
+    alignItems: "center",
+    gap: titlebarStyle?.gap || "8px",
+    padding: titlebarStyle?.padding || "12px",
+    background: titlebarStyle?.backgroundColor || defaultTitlebarColor,
+    borderTopLeftRadius: terminalStyle.borderTopLeftRadius,
+    borderTopRightRadius: terminalStyle.borderTopRightRadius,
+  });
+
+  ["#ff5f57", "#fdbc2e", "#28c840"].forEach((color) => {
+    const dot = document.createElement("span");
+    setInlineStyles(dot, {
+      display: "inline-block",
+      width: "12px",
+      height: "12px",
+      borderRadius: "50%",
+      background: color,
+    });
+    titlebarNode.append(dot);
+  });
+
+  const titleNode = document.createElement("span");
+  titleNode.textContent = refs.title.textContent;
+  setInlineStyles(titleNode, {
+    display: "inline-block",
+    minWidth: "140px",
+    marginLeft: "8px",
+    height: "12px",
+    color: titleStyle.color,
+    lineHeight: "1",
+    visibility: getCurrentModeTitleVisibility() ? "visible" : "hidden",
+  });
+  titlebarNode.append(titleNode);
+
+  const main = document.createElement("div");
+  setInlineStyles(main, {
+    position: "relative",
+    flex: "1",
+    padding: terminalMainStyle.padding,
+    background: terminalMainStyle.backgroundColor,
+  });
+
+  if (isTerminalMode()) {
+    const terminalPre = document.createElement("pre");
+    setInlineStyles(terminalPre, {
+      position: "absolute",
+      inset: "0",
+      margin: terminalContentStyle.margin,
+      padding: terminalContentStyle.padding,
+      whiteSpace: state.wordWrapEnabled ? "pre-wrap" : "pre",
+      overflowWrap: state.wordWrapEnabled ? "anywhere" : "normal",
+      overflow: "auto",
+      outline: "none",
+      color: terminalContentStyle.color,
+      fontFamily: terminalContentStyle.fontFamily,
+      fontSize: terminalContentStyle.fontSize,
+      fontWeight: terminalContentStyle.fontWeight,
+      fontStyle: terminalContentStyle.fontStyle,
+      lineHeight: terminalContentStyle.lineHeight,
+      tabSize: terminalContentStyle.tabSize,
+      boxSizing: "border-box",
+    });
+
+    [...refs.terminalContent.childNodes].forEach((child) =>
+      appendSanitizedTerminalNode(child, terminalPre),
+    );
+    main.append(terminalPre);
+  } else {
+    const codePre = document.createElement("pre");
+    setInlineStyles(codePre, {
+      position: "absolute",
+      inset: "0",
+      margin: codeContentStyle.margin,
+      padding: codeContentStyle.padding,
+      whiteSpace: state.wordWrapEnabled ? "pre-wrap" : "pre",
+      overflowWrap: state.wordWrapEnabled ? "anywhere" : "normal",
+      overflow: "auto",
+      color: codeContentStyle.color,
+      fontFamily: codeContentStyle.fontFamily,
+      fontSize: codeContentStyle.fontSize,
+      fontWeight: codeContentStyle.fontWeight,
+      fontStyle: codeContentStyle.fontStyle,
+      lineHeight: codeContentStyle.lineHeight,
+      tabSize: codeContentStyle.tabSize,
+      boxSizing: "border-box",
+    });
+
+    const codeRoot = cloneCodeNodeWithInlineStyles(refs.codeOutput, {
+      color: codeContentStyle.color,
+      fontWeight: codeContentStyle.fontWeight,
+      fontStyle: codeContentStyle.fontStyle,
+      textDecorationLine: "none",
+      backgroundColor: codeContentStyle.backgroundColor,
+      opacity: codeContentStyle.opacity,
+    });
+    setInlineStyles(codeRoot, {
+      display: "block",
+      minHeight: "100%",
+      margin: "0",
+    });
+    codePre.append(codeRoot);
+    main.append(codePre);
+  }
+
+  snapshot.append(titlebarNode, main);
+  return snapshot.outerHTML;
+}
+
+async function copyTextToClipboard(value) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch (_) {}
+  }
+
+  const input = document.createElement("textarea");
+  input.value = value;
+  input.setAttribute("readonly", "true");
+  input.style.position = "fixed";
+  input.style.left = "-9999px";
+  input.style.opacity = "0";
+  document.body.append(input);
+
+  input.focus();
+  input.select();
+  input.setSelectionRange(0, input.value.length);
+
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch (_) {
+    copied = false;
+  }
+
+  input.remove();
+  return copied;
+}
+
+function initCopyHtmlButton() {
+  if (!refs.copyHtmlButton || !refs.copyHtmlLabel) return;
+
+  const defaultLabel = " Copy Terminal HTML";
+
+  refs.copyHtmlButton.addEventListener("click", async () => {
+    refs.copyHtmlButton.disabled = true;
+    refs.copyHtmlLabel.textContent = " Copying...";
+
+    try {
+      const snapshotHtml = buildTerminalSnapshotHtml();
+      const copied = await copyTextToClipboard(snapshotHtml);
+
+      refs.copyHtmlLabel.textContent = copied ? " Copied!" : " Copy failed";
+      if (!copied) {
+        window.alert(
+          "Could not copy HTML to clipboard. Your browser may be blocking clipboard access.",
+        );
+      }
+    } finally {
+      window.setTimeout(() => {
+        refs.copyHtmlButton.disabled = false;
+        refs.copyHtmlLabel.textContent = defaultLabel;
+      }, 1400);
+    }
+  });
+}
+
 function initSaveButton() {
+  if (refs.exportActions) {
+    refs.exportActions.style.minWidth = `${refs.exportActions.offsetWidth}px`;
+  }
+
   refs.saveButton.addEventListener("click", async () => {
     if (!window.html2canvas) {
       window.alert(
@@ -1382,9 +1835,13 @@ function initSaveButton() {
       link.download = "terminal-screen.png";
       link.href = exportCanvas.toDataURL("image/png");
       link.click();
+
+      refs.saveLabel.textContent = " Saved!";
     } finally {
-      refs.saveButton.disabled = false;
-      refs.saveLabel.textContent = " Save Terminal Image";
+      window.setTimeout(() => {
+        refs.saveButton.disabled = false;
+        refs.saveLabel.textContent = " Save Terminal Image";
+      }, 1400);
     }
   });
 }
@@ -1407,8 +1864,11 @@ function init() {
   state.firstLineHasPlaceholder = detectPlaceholderActive();
   setCssVar("--command-color", refs.commandColorInput.value);
   setTextColors(refs.textColorInput.value);
+  setCssVar("--terminal-bg", refs.bgColorInput.value);
+  setCssVar("--terminal-bg-solid", refs.bgColorInput.value);
   setCssVar("--terminal-font-family", refs.fontFamilyInput.value);
   syncFontVariantOptions(defaults.fontVariant);
+  applyPreviewStyles();
   applyWordWrap(refs.wordWrapInput.checked);
   refs.codeLanguageInput.value = state.codeLanguage;
   applyCodeTheme(defaults.codeTheme);
@@ -1423,6 +1883,7 @@ function init() {
   initControls();
   initTitleEditing();
   initSaveButton();
+  initCopyHtmlButton();
   applyEditorMode(state.editorMode);
   syncTextColorControls();
   syncTitleVisibilityForCurrentMode();

@@ -14,6 +14,9 @@
   - Text colour
   - Terminal background colour
 - Custom 'user' and 'host' which are re-used
+- Export options
+  - Save terminal image (PNG)
+  - Copy terminal HTML (self-contained for the current visible terminal view)
 
 ## Contributing
 
