@@ -15,6 +15,9 @@ const refs = {
   heightInput: document.getElementById("ctrl-height"),
   fontSizeInput: document.getElementById("ctrl-font-size"),
   fontFamilyInput: document.getElementById("ctrl-font-family"),
+  fontVariantInput: document.getElementById("ctrl-font-variant"),
+  fontVariantLabel: document.getElementById("ctrl-font-variant-label"),
+  floatingTooltip: document.getElementById("ctrl-floating-tooltip"),
   wordWrapInput: document.getElementById("ctrl-word-wrap"),
   titleTextVisibleInput: document.getElementById("ctrl-title-text-visible"),
   promptStyleInput: document.getElementById("ctrl-prompt-style"),
@@ -49,6 +52,7 @@ const defaults = {
   height: 330,
   fontSize: 16,
   fontFamily: "'JetBrains Mono', monospace",
+  fontVariant: "400:normal",
   promptStyle: "~ $ ",
   user: "user",
   host: "host",
@@ -134,6 +138,102 @@ const highlightThemes = {
     "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/xcode.min.css",
 };
 
+const fontVariantsByFamily = {
+  "'JetBrains Mono', monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "500:normal", label: "Medium", weight: "500", style: "normal" },
+    { value: "600:normal", label: "Semibold", weight: "600", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "500:italic",
+      label: "Medium Italic",
+      weight: "500",
+      style: "italic",
+    },
+    {
+      value: "600:italic",
+      label: "Semibold Italic",
+      weight: "600",
+      style: "italic",
+    },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "Menlo, Monaco, monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "ui-monospace, 'SF Mono', SFMono-Regular, monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "500:normal", label: "Medium", weight: "500", style: "normal" },
+    { value: "600:normal", label: "Semibold", weight: "600", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "'Courier New', Courier, monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "Consolas, monospace": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  "Arial, Helvetica, sans-serif": [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+  default: [
+    { value: "400:normal", label: "Regular", weight: "400", style: "normal" },
+    { value: "700:normal", label: "Bold", weight: "700", style: "normal" },
+    { value: "400:italic", label: "Italic", weight: "400", style: "italic" },
+    {
+      value: "700:italic",
+      label: "Bold Italic",
+      weight: "700",
+      style: "italic",
+    },
+  ],
+};
+
 const state = {
   promptPrefix: defaults.promptStyle,
   customPrompt: "",
@@ -147,6 +247,7 @@ const state = {
   editorMode: defaults.editorMode,
   codeLanguage: defaults.codeLanguage,
   codeTheme: defaults.codeTheme,
+  fontVariant: defaults.fontVariant,
   detectedCodeLanguage: defaults.codeLanguage,
   terminalTitle: defaults.title,
 };
@@ -162,6 +263,154 @@ function firstPrompt() {
 
 function setCssVar(name, value) {
   root.style.setProperty(name, value);
+}
+
+function getFontVariantsForFamily(fontFamily) {
+  return fontVariantsByFamily[fontFamily] || fontVariantsByFamily.default;
+}
+
+function hideFloatingTooltip() {
+  if (!refs.floatingTooltip) return;
+  refs.floatingTooltip.classList.remove("is-visible");
+  refs.floatingTooltip.hidden = true;
+}
+
+function showFloatingTooltipForLabel(labelNode) {
+  if (!refs.floatingTooltip || !labelNode) return;
+
+  const message = labelNode.dataset.errorMessage;
+  if (!message) {
+    hideFloatingTooltip();
+    return;
+  }
+
+  refs.floatingTooltip.textContent = message;
+  refs.floatingTooltip.hidden = false;
+
+  const gap = 8;
+  const viewportPadding = 8;
+  const labelRect = labelNode.getBoundingClientRect();
+  const tipRect = refs.floatingTooltip.getBoundingClientRect();
+
+  let left = labelRect.right - tipRect.width;
+  left = Math.max(
+    viewportPadding,
+    Math.min(left, window.innerWidth - tipRect.width - viewportPadding),
+  );
+
+  let top = labelRect.bottom + gap;
+  if (top + tipRect.height > window.innerHeight - viewportPadding) {
+    top = labelRect.top - tipRect.height - gap;
+  }
+  top = Math.max(viewportPadding, top);
+
+  refs.floatingTooltip.style.left = `${Math.round(left)}px`;
+  refs.floatingTooltip.style.top = `${Math.round(top)}px`;
+  refs.floatingTooltip.classList.add("is-visible");
+}
+
+function setFontStyleWarning(message = "") {
+  if (!refs.fontVariantLabel) return;
+
+  refs.fontVariantLabel.classList.toggle("is-error", Boolean(message));
+  if (message) {
+    refs.fontVariantLabel.setAttribute("data-error-message", message);
+    refs.fontVariantLabel.setAttribute(
+      "aria-label",
+      `Font style warning: ${message}`,
+    );
+    return;
+  }
+
+  refs.fontVariantLabel.removeAttribute("data-error-message");
+  refs.fontVariantLabel.removeAttribute("aria-label");
+  hideFloatingTooltip();
+}
+
+function applyFontVariant(variantValue) {
+  const variants = getFontVariantsForFamily(refs.fontFamilyInput.value);
+  const variant =
+    variants.find((item) => item.value === variantValue) || variants[0];
+  if (!variant) return;
+
+  state.fontVariant = variant.value;
+  refs.fontVariantInput.value = variant.value;
+  setCssVar("--terminal-font-weight", variant.weight);
+  setCssVar("--terminal-font-style", variant.style);
+}
+
+function parseVariantValue(variantValue) {
+  const [weightRaw, styleRaw] = String(variantValue || "").split(":");
+  const weight = Number(weightRaw);
+  return {
+    weight: Number.isFinite(weight) ? weight : 400,
+    style: styleRaw === "italic" ? "italic" : "normal",
+  };
+}
+
+function findClosestVariant(variants, preferredVariant) {
+  if (!variants.length) return null;
+
+  const preferred = parseVariantValue(preferredVariant);
+  const styleMatches = variants.filter(
+    (variant) => variant.style === preferred.style,
+  );
+  const pool = styleMatches.length ? styleMatches : variants;
+
+  let closest = pool[0];
+  let smallestDistance = Math.abs(Number(pool[0].weight) - preferred.weight);
+
+  for (const variant of pool.slice(1)) {
+    const distance = Math.abs(Number(variant.weight) - preferred.weight);
+    if (distance < smallestDistance) {
+      closest = variant;
+      smallestDistance = distance;
+    }
+  }
+
+  return closest;
+}
+
+function syncFontVariantOptions(
+  preferredVariant,
+  { warnOnFallback = false } = {},
+) {
+  const variants = getFontVariantsForFamily(refs.fontFamilyInput.value);
+  if (!variants.length) return;
+
+  refs.fontVariantInput.replaceChildren();
+  variants.forEach((variant) => {
+    const option = document.createElement("option");
+    option.value = variant.value;
+    option.textContent = variant.label;
+    refs.fontVariantInput.append(option);
+  });
+
+  const preferred = preferredVariant || defaults.fontVariant;
+  const preferredSupported = variants.some(
+    (variant) => variant.value === preferred,
+  );
+  const fallbackVariant = findClosestVariant(variants, preferred);
+  const nextValue = preferredSupported
+    ? preferred
+    : fallbackVariant
+      ? fallbackVariant.value
+      : variants[0].value;
+
+  applyFontVariant(nextValue);
+
+  if (warnOnFallback && preferred && !preferredSupported) {
+    const fallback =
+      variants.find((variant) => variant.value === nextValue) ||
+      fallbackVariant;
+    const fallbackLabel = fallback ? fallback.label : "Regular";
+    setFontStyleWarning(
+      `Selected style is not available for this font. Switched to ${fallbackLabel}.`,
+    );
+    return;
+  }
+
+  setFontStyleWarning("");
 }
 
 function setAllPromptTexts(text) {
@@ -270,34 +519,6 @@ function syncTitleVisibilityForCurrentMode() {
   setCurrentModeTitleVisibility(getCurrentModeTitleVisibility());
 }
 
-function animateControlsModeSwitch(startHeight) {
-  const controls = refs.controls;
-  if (!controls) return;
-
-  const maxHeight = parseFloat(getComputedStyle(controls).maxHeight);
-  let targetHeight = controls.scrollHeight;
-  if (Number.isFinite(maxHeight) && maxHeight > 0) {
-    targetHeight = Math.min(targetHeight, maxHeight);
-  }
-
-  if (Math.abs(targetHeight - startHeight) < 1) return;
-
-  controls.classList.add("is-mode-switching");
-  controls.style.height = `${startHeight}px`;
-  // Force layout so the height transition starts from the current rendered size.
-  void controls.offsetHeight;
-  controls.style.height = `${targetHeight}px`;
-
-  const onTransitionEnd = (event) => {
-    if (event.propertyName !== "height") return;
-    controls.style.height = "";
-    controls.classList.remove("is-mode-switching");
-    controls.removeEventListener("transitionend", onTransitionEnd);
-  };
-
-  controls.addEventListener("transitionend", onTransitionEnd);
-}
-
 function syncTitleWithDefault() {
   if (state.titleUsesDefault) {
     refs.title.textContent = getDefaultTitle();
@@ -337,9 +558,10 @@ function syncUserHostBindings() {
 function setUserHostFieldVisibility(visible) {
   const group = refs.userHostGroup;
   if (!group) return;
+  group.hidden = false;
+  group.setAttribute("aria-hidden", String(!visible));
 
   if (visible) {
-    group.hidden = false;
     // Delay class add by one frame so CSS transitions can run from collapsed state.
     window.requestAnimationFrame(() => {
       group.classList.add("is-visible");
@@ -348,16 +570,6 @@ function setUserHostFieldVisibility(visible) {
   }
 
   group.classList.remove("is-visible");
-
-  const onTransitionEnd = (event) => {
-    if (event.propertyName !== "max-height") return;
-    if (!group.classList.contains("is-visible")) {
-      group.hidden = true;
-    }
-    group.removeEventListener("transitionend", onTransitionEnd);
-  };
-
-  group.addEventListener("transitionend", onTransitionEnd);
 }
 
 function enterCustomPromptMode() {
@@ -610,8 +822,6 @@ function renderCodeMode() {
 }
 
 function applyEditorMode(mode) {
-  const controlsStartHeight =
-    refs.controls?.getBoundingClientRect().height || 0;
   const previousMode = state.editorMode;
   const resolvedMode = mode === "code" ? "code" : "terminal";
   state.editorMode = resolvedMode;
@@ -642,18 +852,12 @@ function applyEditorMode(mode) {
     refs.title.setAttribute("aria-label", "Detected code language");
     syncTextColorControls();
     syncTitleVisibilityForCurrentMode();
-    if (previousMode !== resolvedMode) {
-      animateControlsModeSwitch(controlsStartHeight);
-    }
     return;
   }
 
   refs.title.setAttribute("aria-label", "Terminal title");
   syncTextColorControls();
   syncTitleVisibilityForCurrentMode();
-  if (previousMode !== resolvedMode) {
-    animateControlsModeSwitch(controlsStartHeight);
-  }
 
   updateCommandWords();
 }
@@ -726,6 +930,7 @@ function resetControls() {
   refs.fontFamilyInput.value = defaults.fontFamily;
   setCssVar("--terminal-font-size", `${defaults.fontSize}px`);
   setCssVar("--terminal-font-family", defaults.fontFamily);
+  syncFontVariantOptions(defaults.fontVariant);
   applyWordWrap(defaults.wordWrapEnabled);
 
   refs.textColorInput.value = defaults.textColor;
@@ -1023,7 +1228,15 @@ function initControls() {
   });
 
   refs.fontFamilyInput.addEventListener("change", (event) => {
+    const previousVariant = state.fontVariant;
     setCssVar("--terminal-font-family", event.target.value);
+    syncFontVariantOptions(previousVariant, { warnOnFallback: true });
+    queueAutoExtendTerminalHeight();
+  });
+
+  refs.fontVariantInput.addEventListener("change", (event) => {
+    applyFontVariant(event.target.value);
+    setFontStyleWarning("");
     queueAutoExtendTerminalHeight();
   });
 
@@ -1093,6 +1306,20 @@ function initControls() {
     syncTextColorControls();
   });
 
+  refs.fontVariantLabel?.addEventListener("mouseenter", () => {
+    if (!refs.fontVariantLabel.classList.contains("is-error")) return;
+    showFloatingTooltipForLabel(refs.fontVariantLabel);
+  });
+
+  refs.fontVariantLabel?.addEventListener("mousemove", () => {
+    if (!refs.fontVariantLabel.classList.contains("is-error")) return;
+    showFloatingTooltipForLabel(refs.fontVariantLabel);
+  });
+
+  refs.fontVariantLabel?.addEventListener("mouseleave", () => {
+    hideFloatingTooltip();
+  });
+
   refs.resetButton.addEventListener("click", resetControls);
   refs.clearButton.addEventListener("click", clearCurrentContent);
 }
@@ -1158,6 +1385,8 @@ function init() {
   state.firstLineHasPlaceholder = detectPlaceholderActive();
   setCssVar("--command-color", refs.commandColorInput.value);
   setCssVar("--code-plain-text", refs.textColorInput.value);
+  setCssVar("--terminal-font-family", refs.fontFamilyInput.value);
+  syncFontVariantOptions(defaults.fontVariant);
   applyWordWrap(refs.wordWrapInput.checked);
   refs.codeLanguageInput.value = state.codeLanguage;
   applyCodeTheme(defaults.codeTheme);

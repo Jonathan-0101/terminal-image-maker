@@ -8,7 +8,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" id="highlight-theme-link"
@@ -53,6 +54,7 @@
       <button class="control-tab" id="ctrl-tab-code" role="tab" type="button" aria-selected="false"
         data-editor-mode="code">Code</button>
     </div>
+    <div class="control-divider"></div>
     <label class="control-item">
       <span class="control-label">Width</span>
       <input class="control-input" id="ctrl-width" type="number" value="600" min="320" max="1400" step="10">
@@ -61,6 +63,7 @@
       <span class="control-label">Height</span>
       <input class="control-input" id="ctrl-height" type="number" value="330" min="180" max="900" step="10">
     </label>
+    <div class="control-divider"></div>
     <label class="control-item">
       <span class="control-label">Text size</span>
       <input class="control-input" id="ctrl-font-size" type="number" value="16" min="10" max="32" step="1">
@@ -70,20 +73,25 @@
       <select class="control-select" id="ctrl-font-family">
         <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
         <option value="Menlo, Monaco, monospace">Menlo</option>
-        <option value="'SF Mono', 'Courier New', monospace">SF Mono</option>
+        <option value="ui-monospace, 'SF Mono', SFMono-Regular, monospace">SF Mono</option>
         <option value="'Courier New', Courier, monospace">Courier New</option>
+        <option value="Arial, Helvetica, sans-serif">Arial</option>
       </select>
+    </label>
+    <label class="control-item">
+      <span class="control-label" id="ctrl-font-variant-label">Font style</span>
+      <select class="control-select" id="ctrl-font-variant"></select>
     </label>
     <label class="control-item control-item-checkbox">
       <span class="control-checkbox-row">
         <input type="checkbox" id="ctrl-word-wrap" class="control-checkbox" checked>
-        <span class="control-checkbox-text">Wrap long lines</span>
+        <span class="control-checkbox-text">Text wrap</span>
       </span>
     </label>
     <label class="control-item control-item-checkbox">
       <span class="control-checkbox-row">
         <input type="checkbox" id="ctrl-title-text-visible" class="control-checkbox" checked>
-        <span class="control-checkbox-text">Show title text</span>
+        <span class="control-checkbox-text">Show title</span>
       </span>
     </label>
     <div class="control-divider"></div>
@@ -93,7 +101,7 @@
         <span class="control-checkbox-text">Custom user / host</span>
       </span>
     </label>
-    <div class="user-host-group mode-terminal-only" id="ctrl-user-host-group" hidden>
+    <div class="user-host-group mode-terminal-only" id="ctrl-user-host-group" aria-hidden="true">
       <label class="control-item" id="ctrl-user-field">
         <input class="control-input" id="ctrl-user" type="text" value="user" disabled>
       </label>
@@ -102,7 +110,7 @@
       </label>
     </div>
     <label class="control-item mode-terminal-only">
-      <span class="control-label">Line start</span>
+      <span class="control-label">Prompt start</span>
       <select class="control-select" id="ctrl-prompt-style">
         <option value="~ $ ">~ $</option>
         <option value="$ ">$</option>
@@ -215,6 +223,8 @@
     <i class="bi bi-download"></i>
     <span class="save-label"> Save Terminal Image</span>
   </button>
+
+  <div class="control-tooltip" id="ctrl-floating-tooltip" role="tooltip" hidden></div>
 
   <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
