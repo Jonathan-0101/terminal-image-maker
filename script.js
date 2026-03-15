@@ -1,15 +1,22 @@
 const refs = {
   modeToggle: document.querySelector(".mode-toggle"),
+  controls: document.querySelector(".controls"),
   saveButton: document.querySelector(".save-button"),
   saveLabel: document.querySelector(".save-label"),
+  modeTabs: document.querySelectorAll(".control-tab[data-editor-mode]"),
   terminal: document.querySelector(".terminal"),
-  terminalContent: document.querySelector(".content"),
+  terminalContent: document.querySelector(".terminal-content"),
+  codeLayer: document.querySelector(".code-layer"),
+  codeInput: document.getElementById("code-input"),
+  codeOutput: document.getElementById("code-output"),
   title: document.querySelector(".title"),
   commandColorInput: document.getElementById("ctrl-color-cmd"),
   widthInput: document.getElementById("ctrl-width"),
   heightInput: document.getElementById("ctrl-height"),
   fontSizeInput: document.getElementById("ctrl-font-size"),
   fontFamilyInput: document.getElementById("ctrl-font-family"),
+  wordWrapInput: document.getElementById("ctrl-word-wrap"),
+  titleTextVisibleInput: document.getElementById("ctrl-title-text-visible"),
   promptStyleInput: document.getElementById("ctrl-prompt-style"),
   promptStyleCustomInput: document.getElementById("ctrl-prompt-style-custom"),
   userHostEnabledInput: document.getElementById("ctrl-user-host-enabled"),
@@ -18,9 +25,16 @@ const refs = {
   hostInput: document.getElementById("ctrl-host"),
   promptColorInput: document.getElementById("ctrl-color-prompt"),
   textColorInput: document.getElementById("ctrl-color-text"),
+  codeTextColorEnabledInput: document.getElementById(
+    "ctrl-code-text-color-enabled",
+  ),
   bgColorInput: document.getElementById("ctrl-color-bg"),
+  codeLanguageInput: document.getElementById("ctrl-code-language"),
+  codeThemeInput: document.getElementById("ctrl-code-theme"),
+  highlightThemeLink: document.getElementById("highlight-theme-link"),
   cmdWordInput: document.getElementById("ctrl-cmd-word"),
   resetButton: document.getElementById("ctrl-reset"),
+  clearButton: document.getElementById("ctrl-clear"),
 };
 
 const root = document.documentElement;
@@ -44,6 +58,80 @@ const defaults = {
   bgColor: "#1e1e1e",
   cmdColor: "#08ff02",
   cmdWordEnabled: false,
+  wordWrapEnabled: true,
+  codeTextColorEnabled: false,
+  terminalTitleTextVisible: true,
+  codeTitleTextVisible: true,
+  editorMode: "terminal",
+  codeLanguage: "auto",
+  codeTheme: "gruvbox-light-soft",
+  codeSnippet: "",
+};
+
+const languageLabels = {
+  auto: "Auto",
+  plaintext: "Plain Text",
+  c: "C",
+  cpp: "C++",
+  csharp: "C#",
+  javascript: "JavaScript",
+  jsx: "JSX",
+  typescript: "TypeScript",
+  tsx: "TSX",
+  python: "Python",
+  bash: "Bash",
+  shell: "Shell",
+  json: "JSON",
+  html: "HTML",
+  css: "CSS",
+  dart: "Dart",
+  diff: "Diff",
+  dockerfile: "Dockerfile",
+  go: "Go",
+  graphql: "GraphQL",
+  ini: "INI",
+  java: "Java",
+  kotlin: "Kotlin",
+  lua: "Lua",
+  markdown: "Markdown",
+  php: "PHP",
+  powershell: "PowerShell",
+  ruby: "Ruby",
+  rust: "Rust",
+  scala: "Scala",
+  sql: "SQL",
+  swift: "Swift",
+  toml: "TOML",
+  xml: "XML",
+  yaml: "YAML",
+};
+
+const highlightThemes = {
+  "gruvbox-light-soft":
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/base16/gruvbox-light-soft.min.css",
+  github:
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css",
+  "github-dark":
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css",
+  "atom-one-light":
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/atom-one-light.min.css",
+  "atom-one-dark":
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/atom-one-dark.min.css",
+  "night-owl":
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/night-owl.min.css",
+  "tokyo-night-dark":
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/tokyo-night-dark.min.css",
+  monokai:
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/monokai.min.css",
+  dracula:
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/dracula.min.css",
+  nord: "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/nord.min.css",
+  "stackoverflow-light":
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/stackoverflow-light.min.css",
+  "stackoverflow-dark":
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/stackoverflow-dark.min.css",
+  xcode:
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/xcode.min.css",
 };
 
 const state = {
@@ -52,6 +140,15 @@ const state = {
   cmdWordEnabled: defaults.cmdWordEnabled,
   firstLineHasPlaceholder: false,
   titleUsesDefault: true,
+  wordWrapEnabled: defaults.wordWrapEnabled,
+  codeTextColorEnabled: defaults.codeTextColorEnabled,
+  terminalTitleTextVisible: defaults.terminalTitleTextVisible,
+  codeTitleTextVisible: defaults.codeTitleTextVisible,
+  editorMode: defaults.editorMode,
+  codeLanguage: defaults.codeLanguage,
+  codeTheme: defaults.codeTheme,
+  detectedCodeLanguage: defaults.codeLanguage,
+  terminalTitle: defaults.title,
 };
 
 function withPromptSpacing(value) {
@@ -91,6 +188,114 @@ function resolveUserHostTemplate(template) {
 
 function getDefaultTitle() {
   return resolveUserHostTemplate("{user}@{host}:~$");
+}
+
+function getLanguageLabel(language) {
+  if (!language) return languageLabels.auto;
+  return languageLabels[language] || language;
+}
+
+function updateCodeModeTitle() {
+  if (state.editorMode !== "code") return;
+  const language =
+    state.codeLanguage === "auto"
+      ? state.detectedCodeLanguage || "auto"
+      : state.codeLanguage;
+  refs.title.textContent = `${getLanguageLabel(language)}`;
+}
+
+function queueAutoExtendTerminalHeight() {
+  window.requestAnimationFrame(() => {
+    const activeEditor =
+      state.editorMode === "code" ? refs.codeInput : refs.terminalContent;
+    if (!activeEditor) return;
+
+    const overflow = activeEditor.scrollHeight - activeEditor.clientHeight;
+    if (overflow <= 0) return;
+
+    const currentHeight = refs.terminal.getBoundingClientRect().height;
+    const nextHeight = Math.ceil(currentHeight + overflow + 2);
+    refs.terminal.style.height = `${nextHeight}px`;
+    refs.heightInput.value = String(nextHeight);
+  });
+}
+
+function applyWordWrap(enabled) {
+  state.wordWrapEnabled = Boolean(enabled);
+  refs.terminal.dataset.wordWrap = state.wordWrapEnabled ? "on" : "off";
+  refs.wordWrapInput.checked = state.wordWrapEnabled;
+  queueAutoExtendTerminalHeight();
+}
+
+function syncTextColorControls() {
+  refs.terminal.dataset.codeTextColor = state.codeTextColorEnabled
+    ? "on"
+    : "off";
+
+  refs.codeTextColorEnabledInput.checked = state.codeTextColorEnabled;
+  const colorInputEnabled =
+    state.editorMode === "terminal" || state.codeTextColorEnabled;
+  refs.textColorInput.disabled = !colorInputEnabled;
+}
+
+function applyCodeTheme(themeName) {
+  const resolvedTheme = highlightThemes[themeName]
+    ? themeName
+    : defaults.codeTheme;
+  state.codeTheme = resolvedTheme;
+  refs.codeThemeInput.value = resolvedTheme;
+  if (refs.highlightThemeLink) {
+    refs.highlightThemeLink.href = highlightThemes[resolvedTheme];
+  }
+}
+
+function getCurrentModeTitleVisibility() {
+  return state.editorMode === "code"
+    ? state.codeTitleTextVisible
+    : state.terminalTitleTextVisible;
+}
+
+function setCurrentModeTitleVisibility(visible) {
+  if (state.editorMode === "code") {
+    state.codeTitleTextVisible = visible;
+  } else {
+    state.terminalTitleTextVisible = visible;
+  }
+
+  refs.title.classList.toggle("is-hidden", !visible);
+  refs.titleTextVisibleInput.checked = visible;
+}
+
+function syncTitleVisibilityForCurrentMode() {
+  setCurrentModeTitleVisibility(getCurrentModeTitleVisibility());
+}
+
+function animateControlsModeSwitch(startHeight) {
+  const controls = refs.controls;
+  if (!controls) return;
+
+  const maxHeight = parseFloat(getComputedStyle(controls).maxHeight);
+  let targetHeight = controls.scrollHeight;
+  if (Number.isFinite(maxHeight) && maxHeight > 0) {
+    targetHeight = Math.min(targetHeight, maxHeight);
+  }
+
+  if (Math.abs(targetHeight - startHeight) < 1) return;
+
+  controls.classList.add("is-mode-switching");
+  controls.style.height = `${startHeight}px`;
+  // Force layout so the height transition starts from the current rendered size.
+  void controls.offsetHeight;
+  controls.style.height = `${targetHeight}px`;
+
+  const onTransitionEnd = (event) => {
+    if (event.propertyName !== "height") return;
+    controls.style.height = "";
+    controls.classList.remove("is-mode-switching");
+    controls.removeEventListener("transitionend", onTransitionEnd);
+  };
+
+  controls.addEventListener("transitionend", onTransitionEnd);
 }
 
 function syncTitleWithDefault() {
@@ -315,6 +520,8 @@ function setCaretOffset(rootNode, target) {
 }
 
 function updateCommandWords() {
+  if (state.editorMode !== "terminal") return;
+
   const caret = getCaretOffset(refs.terminalContent);
   const initialPrompt = firstPrompt();
 
@@ -352,6 +559,105 @@ function updateCommandWords() {
   if (caret >= 0) setCaretOffset(refs.terminalContent, caret);
 }
 
+function syncCodeScroll() {
+  const codeView = refs.codeLayer?.querySelector(".code-content");
+  if (!codeView || !refs.codeInput) return;
+  codeView.scrollTop = refs.codeInput.scrollTop;
+  codeView.scrollLeft = refs.codeInput.scrollLeft;
+}
+
+function renderCodeMode() {
+  if (!refs.codeOutput || !refs.codeInput) return;
+
+  const source = refs.codeInput.value;
+  refs.codeOutput.className = "code-output hljs";
+
+  if (!source) {
+    state.detectedCodeLanguage = "auto";
+    refs.codeOutput.textContent = " ";
+    updateCodeModeTitle();
+    syncCodeScroll();
+    queueAutoExtendTerminalHeight();
+    return;
+  }
+
+  if (!window.hljs) {
+    state.detectedCodeLanguage = state.codeLanguage;
+    refs.codeOutput.textContent = source;
+    updateCodeModeTitle();
+    syncCodeScroll();
+    queueAutoExtendTerminalHeight();
+    return;
+  }
+
+  if (state.codeLanguage === "auto") {
+    const result = window.hljs.highlightAuto(source);
+    state.detectedCodeLanguage = result.language || "plaintext";
+    refs.codeOutput.innerHTML = result.value;
+    updateCodeModeTitle();
+    syncCodeScroll();
+    queueAutoExtendTerminalHeight();
+    return;
+  }
+
+  state.detectedCodeLanguage = state.codeLanguage;
+  refs.codeOutput.classList.add(`language-${state.codeLanguage}`);
+  refs.codeOutput.textContent = source;
+  window.hljs.highlightElement(refs.codeOutput);
+  updateCodeModeTitle();
+  syncCodeScroll();
+  queueAutoExtendTerminalHeight();
+}
+
+function applyEditorMode(mode) {
+  const controlsStartHeight =
+    refs.controls?.getBoundingClientRect().height || 0;
+  const previousMode = state.editorMode;
+  const resolvedMode = mode === "code" ? "code" : "terminal";
+  state.editorMode = resolvedMode;
+
+  document.body.dataset.editorMode = resolvedMode;
+  refs.terminal.dataset.editorMode = resolvedMode;
+  refs.terminalContent.contentEditable = String(resolvedMode === "terminal");
+  refs.codeInput.disabled = resolvedMode !== "code";
+  refs.codeLayer.setAttribute("aria-hidden", String(resolvedMode !== "code"));
+
+  refs.modeTabs.forEach((button) => {
+    const isActive = button.dataset.editorMode === resolvedMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+
+  if (previousMode !== "code" && resolvedMode === "code") {
+    state.terminalTitle = refs.title.textContent;
+  }
+
+  if (previousMode === "code" && resolvedMode === "terminal") {
+    refs.title.textContent = state.terminalTitle;
+    state.titleUsesDefault = refs.title.textContent === getDefaultTitle();
+  }
+
+  if (resolvedMode === "code") {
+    renderCodeMode();
+    refs.title.setAttribute("aria-label", "Detected code language");
+    syncTextColorControls();
+    syncTitleVisibilityForCurrentMode();
+    if (previousMode !== resolvedMode) {
+      animateControlsModeSwitch(controlsStartHeight);
+    }
+    return;
+  }
+
+  refs.title.setAttribute("aria-label", "Terminal title");
+  syncTextColorControls();
+  syncTitleVisibilityForCurrentMode();
+  if (previousMode !== resolvedMode) {
+    animateControlsModeSwitch(controlsStartHeight);
+  }
+
+  updateCommandWords();
+}
+
 function applyMode(mode) {
   document.body.classList.toggle("light-mode", mode === "light");
   document.body.classList.toggle("dark-mode", mode === "dark");
@@ -381,7 +687,36 @@ function bindColorInput(input, cssVar) {
   });
 }
 
+function clearCurrentContent() {
+  if (state.editorMode === "code") {
+    refs.codeInput.value = "";
+    renderCodeMode();
+    refs.codeInput.focus();
+    queueAutoExtendTerminalHeight();
+    return;
+  }
+
+  refs.terminalContent.replaceChildren();
+
+  const prompt = document.createElement("span");
+  prompt.className = "first-char";
+  prompt.textContent = state.promptPrefix;
+
+  refs.terminalContent.append(
+    prompt,
+    document.createTextNode(firstLinePlaceholder),
+  );
+  state.firstLineHasPlaceholder = true;
+
+  updateCommandWords();
+  setCaretAfterFirstPrompt();
+  refs.terminalContent.focus();
+  queueAutoExtendTerminalHeight();
+}
+
 function resetControls() {
+  const activeMode = state.editorMode;
+
   refs.widthInput.value = String(defaults.width);
   refs.heightInput.value = String(defaults.height);
   refs.terminal.style.width = `${defaults.width}px`;
@@ -391,38 +726,66 @@ function resetControls() {
   refs.fontFamilyInput.value = defaults.fontFamily;
   setCssVar("--terminal-font-size", `${defaults.fontSize}px`);
   setCssVar("--terminal-font-family", defaults.fontFamily);
+  applyWordWrap(defaults.wordWrapEnabled);
 
-  refs.promptStyleInput.value = defaults.promptStyle;
-  refs.promptStyleInput.hidden = false;
-  refs.promptStyleCustomInput.hidden = true;
-  state.customPrompt = "";
-  updatePromptPrefix(defaults.promptStyle);
-  refs.userHostEnabledInput.checked = defaults.userHostEnabled;
-  refs.userInput.value = defaults.user;
-  refs.hostInput.value = defaults.host;
-  setUserHostFieldVisibility(defaults.userHostEnabled);
-  refs.userInput.disabled = !defaults.userHostEnabled;
-  refs.hostInput.disabled = !defaults.userHostEnabled;
-  syncUserHostBindings();
-
-  refs.promptColorInput.value = defaults.promptColor;
   refs.textColorInput.value = defaults.textColor;
   refs.bgColorInput.value = defaults.bgColor;
-  refs.commandColorInput.value = defaults.cmdColor;
-
-  setCssVar("--terminal-prompt", defaults.promptColor);
   setCssVar("--terminal-text", defaults.textColor);
+  setCssVar("--code-plain-text", defaults.textColor);
   setCssVar("--terminal-bg", defaults.bgColor);
-  setCssVar("--command-color", defaults.cmdColor);
+  state.codeTextColorEnabled = defaults.codeTextColorEnabled;
 
-  refs.cmdWordInput.checked = defaults.cmdWordEnabled;
-  state.cmdWordEnabled = defaults.cmdWordEnabled;
-  refs.commandColorInput.disabled = !defaults.cmdWordEnabled;
-  updateCommandWords();
+  if (activeMode === "terminal") {
+    refs.promptStyleInput.value = defaults.promptStyle;
+    refs.promptStyleInput.hidden = false;
+    refs.promptStyleCustomInput.hidden = true;
+    state.customPrompt = "";
+    updatePromptPrefix(defaults.promptStyle);
+
+    refs.userHostEnabledInput.checked = defaults.userHostEnabled;
+    refs.userInput.value = defaults.user;
+    refs.hostInput.value = defaults.host;
+    setUserHostFieldVisibility(defaults.userHostEnabled);
+    refs.userInput.disabled = !defaults.userHostEnabled;
+    refs.hostInput.disabled = !defaults.userHostEnabled;
+
+    refs.promptColorInput.value = defaults.promptColor;
+    setCssVar("--terminal-prompt", defaults.promptColor);
+
+    refs.commandColorInput.value = defaults.cmdColor;
+    setCssVar("--command-color", defaults.cmdColor);
+
+    refs.cmdWordInput.checked = defaults.cmdWordEnabled;
+    state.cmdWordEnabled = defaults.cmdWordEnabled;
+    refs.commandColorInput.disabled = !defaults.cmdWordEnabled;
+
+    state.titleUsesDefault = true;
+    state.terminalTitle = getDefaultTitle();
+    refs.title.textContent = state.terminalTitle;
+    state.terminalTitleTextVisible = defaults.terminalTitleTextVisible;
+
+    syncUserHostBindings();
+    updateCommandWords();
+  } else {
+    refs.codeLanguageInput.value = defaults.codeLanguage;
+    state.codeLanguage = defaults.codeLanguage;
+    applyCodeTheme(defaults.codeTheme);
+    refs.codeInput.value = defaults.codeSnippet;
+    state.detectedCodeLanguage = defaults.codeLanguage;
+    state.codeTitleTextVisible = defaults.codeTitleTextVisible;
+
+    renderCodeMode();
+  }
+
+  syncTitleVisibilityForCurrentMode();
+  syncTextColorControls();
+  queueAutoExtendTerminalHeight();
 }
 
 function initTitleEditing() {
   refs.title.addEventListener("click", () => {
+    if (state.editorMode === "code") return;
+
     const currentText = refs.title.textContent;
     const input = document.createElement("input");
     input.type = "text";
@@ -435,6 +798,7 @@ function initTitleEditing() {
     function commit() {
       refs.title.textContent = input.value.trim();
       state.titleUsesDefault = refs.title.textContent === getDefaultTitle();
+      state.terminalTitle = refs.title.textContent;
       input.replaceWith(refs.title);
     }
 
@@ -454,14 +818,39 @@ function initTitleEditing() {
 
 function initTerminalInput() {
   refs.terminalContent.addEventListener("click", () => {
+    if (state.editorMode !== "terminal") return;
     if (isPlaceholderActive()) setCaretAfterFirstPrompt();
   });
 
   refs.terminalContent.addEventListener("focus", () => {
+    if (state.editorMode !== "terminal") return;
     if (isPlaceholderActive()) setCaretAfterFirstPrompt();
   });
 
   refs.terminalContent.addEventListener("keydown", (event) => {
+    if (state.editorMode !== "terminal") return;
+
+    if (event.key === "Tab") {
+      event.preventDefault();
+
+      const sel = window.getSelection();
+      if (!sel?.rangeCount) return;
+
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+
+      const tabText = document.createTextNode("\t");
+      range.insertNode(tabText);
+      range.setStartAfter(tabText);
+      range.collapse(true);
+
+      sel.removeAllRanges();
+      sel.addRange(range);
+      updateCommandWords();
+      queueAutoExtendTerminalHeight();
+      return;
+    }
+
     if (event.key !== "Enter") return;
     event.preventDefault();
 
@@ -485,9 +874,12 @@ function initTerminalInput() {
 
     sel.removeAllRanges();
     sel.addRange(range);
+    queueAutoExtendTerminalHeight();
   });
 
   refs.terminalContent.addEventListener("beforeinput", (event) => {
+    if (state.editorMode !== "terminal") return;
+
     if (
       isPlaceholderActive() &&
       ["insertText", "insertFromPaste", "insertCompositionText"].includes(
@@ -530,6 +922,8 @@ function initTerminalInput() {
   });
 
   refs.terminalContent.addEventListener("input", () => {
+    if (state.editorMode !== "terminal") return;
+
     const sel = window.getSelection();
     if (!sel?.rangeCount) return;
 
@@ -561,14 +955,54 @@ function initTerminalInput() {
     }
 
     updateCommandWords();
+    queueAutoExtendTerminalHeight();
+  });
+}
+
+function initEditorTabs() {
+  refs.modeTabs.forEach((button) => {
+    button.addEventListener("click", () => {
+      applyEditorMode(button.dataset.editorMode);
+    });
+  });
+}
+
+function initCodeInput() {
+  if (!refs.codeInput) return;
+
+  refs.codeInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+
+    event.preventDefault();
+    const start = refs.codeInput.selectionStart;
+    const end = refs.codeInput.selectionEnd;
+    const value = refs.codeInput.value;
+
+    refs.codeInput.value = `${value.slice(0, start)}\t${value.slice(end)}`;
+    refs.codeInput.selectionStart = start + 1;
+    refs.codeInput.selectionEnd = start + 1;
+    renderCodeMode();
+  });
+
+  refs.codeInput.addEventListener("input", () => {
+    renderCodeMode();
+    queueAutoExtendTerminalHeight();
+  });
+
+  refs.codeInput.addEventListener("scroll", () => {
+    syncCodeScroll();
   });
 }
 
 function initControls() {
   bindColorInput(refs.promptColorInput, "--terminal-prompt");
-  bindColorInput(refs.textColorInput, "--terminal-text");
   bindColorInput(refs.bgColorInput, "--terminal-bg");
   bindColorInput(refs.commandColorInput, "--command-color");
+
+  refs.textColorInput.addEventListener("input", (event) => {
+    setCssVar("--terminal-text", event.target.value);
+    setCssVar("--code-plain-text", event.target.value);
+  });
 
   refs.widthInput.addEventListener("input", (event) => {
     const value = Math.max(320, Math.min(1400, Number(event.target.value)));
@@ -582,11 +1016,23 @@ function initControls() {
 
   refs.fontSizeInput.addEventListener("input", (event) => {
     const value = Math.max(10, Math.min(32, Number(event.target.value)));
-    if (value) setCssVar("--terminal-font-size", `${value}px`);
+    if (value) {
+      setCssVar("--terminal-font-size", `${value}px`);
+      queueAutoExtendTerminalHeight();
+    }
   });
 
   refs.fontFamilyInput.addEventListener("change", (event) => {
     setCssVar("--terminal-font-family", event.target.value);
+    queueAutoExtendTerminalHeight();
+  });
+
+  refs.wordWrapInput.addEventListener("change", (event) => {
+    applyWordWrap(event.target.checked);
+  });
+
+  refs.titleTextVisibleInput.addEventListener("change", (event) => {
+    setCurrentModeTitleVisibility(event.target.checked);
   });
 
   refs.promptStyleInput.addEventListener("change", (event) => {
@@ -633,7 +1079,22 @@ function initControls() {
     updateCommandWords();
   });
 
+  refs.codeLanguageInput.addEventListener("change", (event) => {
+    state.codeLanguage = event.target.value;
+    renderCodeMode();
+  });
+
+  refs.codeThemeInput.addEventListener("change", (event) => {
+    applyCodeTheme(event.target.value);
+  });
+
+  refs.codeTextColorEnabledInput.addEventListener("change", (event) => {
+    state.codeTextColorEnabled = event.target.checked;
+    syncTextColorControls();
+  });
+
   refs.resetButton.addEventListener("click", resetControls);
+  refs.clearButton.addEventListener("click", clearCurrentContent);
 }
 
 function initSaveButton() {
@@ -696,12 +1157,24 @@ function init() {
   normalizeInitialPlaceholderLine();
   state.firstLineHasPlaceholder = detectPlaceholderActive();
   setCssVar("--command-color", refs.commandColorInput.value);
+  setCssVar("--code-plain-text", refs.textColorInput.value);
+  applyWordWrap(refs.wordWrapInput.checked);
+  refs.codeLanguageInput.value = state.codeLanguage;
+  applyCodeTheme(defaults.codeTheme);
+  refs.codeInput.value = defaults.codeSnippet;
+  state.terminalTitle = refs.title.textContent;
   setUserHostFieldVisibility(refs.userHostEnabledInput.checked);
   syncUserHostBindings();
+  initEditorTabs();
   initTerminalInput();
+  initCodeInput();
   initControls();
   initTitleEditing();
   initSaveButton();
+  applyEditorMode(state.editorMode);
+  syncTextColorControls();
+  syncTitleVisibilityForCurrentMode();
+  renderCodeMode();
   updateCommandWords();
 }
 
