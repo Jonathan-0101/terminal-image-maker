@@ -7,6 +7,7 @@ const refs = {
   copyHtmlLabel: document.querySelector(".copy-html-label"),
   exportActions: document.querySelector(".export-actions"),
   modeTabs: document.querySelectorAll(".control-tab[data-editor-mode]"),
+  terminalPreview: document.getElementById("terminal-preview"),
   terminal: document.querySelector(".terminal"),
   terminalContent: document.querySelector(".terminal-content"),
   codeLayer: document.querySelector(".code-layer"),
@@ -35,6 +36,19 @@ const refs = {
     "ctrl-code-text-color-enabled",
   ),
   bgColorInput: document.getElementById("ctrl-color-bg"),
+  previewTransparencyEnabledInput: document.getElementById(
+    "ctrl-preview-transparency-enabled",
+  ),
+  previewAppearancePanel: document.getElementById(
+    "ctrl-preview-appearance-panel",
+  ),
+  titlebarOpacityInput: document.getElementById("ctrl-titlebar-opacity"),
+  titlebarOpacityValue: document.getElementById("ctrl-titlebar-opacity-value"),
+  terminalOpacityInput: document.getElementById("ctrl-terminal-opacity"),
+  terminalOpacityValue: document.getElementById("ctrl-terminal-opacity-value"),
+  previewBackdropColorInput: document.getElementById(
+    "ctrl-preview-backdrop-color",
+  ),
   codeLanguageInput: document.getElementById("ctrl-code-language"),
   codeThemeInput: document.getElementById("ctrl-code-theme"),
   highlightThemeLink: document.getElementById("highlight-theme-link"),
@@ -46,6 +60,7 @@ const refs = {
 const root = document.documentElement;
 const exportScale = Math.max(8, window.devicePixelRatio * 2);
 const exportPadding = 24;
+const defaultTitlebarColor = "#2d2d2d";
 const snapshotTextStyleProps = [
   "color",
   "fontWeight",
@@ -71,6 +86,10 @@ const defaults = {
   promptColor: "#ffffff",
   textColor: "#999999",
   bgColor: "#1e1e1e",
+  previewTransparencyEnabled: false,
+  titlebarOpacity: 90,
+  terminalOpacity: 76,
+  previewBackdropColor: "#d7c4a3",
   cmdColor: "#08ff02",
   cmdWordEnabled: false,
   wordWrapEnabled: true,
@@ -261,6 +280,10 @@ const state = {
   fontVariant: defaults.fontVariant,
   detectedCodeLanguage: defaults.codeLanguage,
   terminalTitle: defaults.title,
+  previewTransparencyEnabled: defaults.previewTransparencyEnabled,
+  titlebarOpacity: defaults.titlebarOpacity,
+  terminalOpacity: defaults.terminalOpacity,
+  previewBackdropColor: defaults.previewBackdropColor,
 };
 
 let autoExtendTerminalHeightFrame = 0;
@@ -308,6 +331,15 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function toRgbChannels(hexColor) {
+  const match = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hexColor);
+  if (!match) return "0 0 0";
+
+  return [match[1], match[2], match[3]]
+    .map((channel) => Number.parseInt(channel, 16))
+    .join(" ");
+}
+
 function setCssVar(name, value) {
   root.style.setProperty(name, value);
 }
@@ -315,6 +347,64 @@ function setCssVar(name, value) {
 function setTextColors(value) {
   setCssVar("--terminal-text", value);
   setCssVar("--code-plain-text", value);
+}
+
+function setRangeOutput(output, value) {
+  if (!output) return;
+  output.textContent = `${value}%`;
+}
+
+function syncPreviewControlAvailability() {
+  const enabled = state.previewTransparencyEnabled;
+  refs.previewTransparencyEnabledInput.setAttribute(
+    "aria-expanded",
+    enabled ? "true" : "false",
+  );
+
+  if (refs.previewAppearancePanel) {
+    refs.previewAppearancePanel.hidden = !enabled;
+    refs.previewAppearancePanel.setAttribute(
+      "aria-hidden",
+      enabled ? "false" : "true",
+    );
+  }
+
+  refs.titlebarOpacityInput.disabled = !enabled;
+  refs.terminalOpacityInput.disabled = !enabled;
+  refs.previewBackdropColorInput.disabled = !enabled;
+}
+
+function applyPreviewStyles() {
+  const terminalAlpha = state.previewTransparencyEnabled
+    ? clamp(state.terminalOpacity, 20, 100) / 100
+    : 1;
+  const titlebarAlpha = state.previewTransparencyEnabled
+    ? clamp(state.titlebarOpacity, 35, 100) / 100
+    : 1;
+
+  setCssVar(
+    "--terminal-surface-bg",
+    `rgb(${toRgbChannels(refs.bgColorInput.value)} / ${terminalAlpha})`,
+  );
+  setCssVar(
+    "--titlebar-surface-bg",
+    `rgb(${toRgbChannels(defaultTitlebarColor)} / ${titlebarAlpha})`,
+  );
+  setCssVar("--preview-backdrop-color", state.previewBackdropColor);
+
+  if (refs.terminalPreview) {
+    refs.terminalPreview.dataset.previewTransparency =
+      state.previewTransparencyEnabled ? "on" : "off";
+  }
+
+  refs.previewTransparencyEnabledInput.checked =
+    state.previewTransparencyEnabled;
+  refs.titlebarOpacityInput.value = String(state.titlebarOpacity);
+  refs.terminalOpacityInput.value = String(state.terminalOpacity);
+  refs.previewBackdropColorInput.value = state.previewBackdropColor;
+  setRangeOutput(refs.titlebarOpacityValue, state.titlebarOpacity);
+  setRangeOutput(refs.terminalOpacityValue, state.terminalOpacity);
+  syncPreviewControlAvailability();
 }
 
 function setUserHostInputsEnabled(enabled) {
@@ -1013,6 +1103,17 @@ function resetControls() {
   refs.bgColorInput.value = defaults.bgColor;
   setTextColors(defaults.textColor);
   setCssVar("--terminal-bg", defaults.bgColor);
+  setCssVar("--terminal-bg-solid", defaults.bgColor);
+  refs.previewTransparencyEnabledInput.checked =
+    defaults.previewTransparencyEnabled;
+  refs.titlebarOpacityInput.value = String(defaults.titlebarOpacity);
+  refs.terminalOpacityInput.value = String(defaults.terminalOpacity);
+  refs.previewBackdropColorInput.value = defaults.previewBackdropColor;
+  state.previewTransparencyEnabled = defaults.previewTransparencyEnabled;
+  state.titlebarOpacity = defaults.titlebarOpacity;
+  state.terminalOpacity = defaults.terminalOpacity;
+  state.previewBackdropColor = defaults.previewBackdropColor;
+  applyPreviewStyles();
   state.codeTextColorEnabled = defaults.codeTextColorEnabled;
 
   if (activeMode === "terminal") {
@@ -1278,6 +1379,27 @@ function initControls() {
   refs.textColorInput.addEventListener("input", (e) =>
     setTextColors(e.target.value),
   );
+  refs.bgColorInput.addEventListener("input", (event) => {
+    setCssVar("--terminal-bg", event.target.value);
+    setCssVar("--terminal-bg-solid", event.target.value);
+    applyPreviewStyles();
+  });
+  refs.previewTransparencyEnabledInput.addEventListener("change", (event) => {
+    state.previewTransparencyEnabled = event.target.checked;
+    applyPreviewStyles();
+  });
+  refs.titlebarOpacityInput.addEventListener("input", (event) => {
+    state.titlebarOpacity = clamp(Number(event.target.value), 35, 100);
+    applyPreviewStyles();
+  });
+  refs.terminalOpacityInput.addEventListener("input", (event) => {
+    state.terminalOpacity = clamp(Number(event.target.value), 20, 100);
+    applyPreviewStyles();
+  });
+  refs.previewBackdropColorInput.addEventListener("input", (event) => {
+    state.previewBackdropColor = event.target.value;
+    applyPreviewStyles();
+  });
 
   refs.fontFamilyInput.addEventListener("change", (event) => {
     const previousVariant = state.fontVariant;
@@ -1460,6 +1582,9 @@ function buildTerminalSnapshotHtml() {
   const titlebar = refs.terminal.querySelector(".titlebar");
   const terminalMain = refs.terminal.querySelector(".terminal-main");
   const titlebarStyle = titlebar ? getComputedStyle(titlebar) : null;
+  const terminalMainStyle = terminalMain
+    ? getComputedStyle(terminalMain)
+    : terminalStyle;
   const titleStyle = getComputedStyle(refs.title);
   const terminalContentStyle = getComputedStyle(refs.terminalContent);
   const codeContent = refs.codeLayer?.querySelector(".code-content");
@@ -1476,7 +1601,7 @@ function buildTerminalSnapshotHtml() {
     flexDirection: "column",
     overflow: "hidden",
     borderRadius: terminalStyle.borderRadius,
-    background: terminalStyle.backgroundColor,
+    background: terminalMainStyle.backgroundColor,
     color: terminalStyle.color,
     fontFamily: terminalContentStyle.fontFamily,
     boxShadow: terminalStyle.boxShadow,
@@ -1488,7 +1613,7 @@ function buildTerminalSnapshotHtml() {
     alignItems: "center",
     gap: titlebarStyle?.gap || "8px",
     padding: titlebarStyle?.padding || "12px",
-    background: titlebarStyle?.backgroundColor || "#2d2d2d",
+    background: titlebarStyle?.backgroundColor || defaultTitlebarColor,
     borderTopLeftRadius: terminalStyle.borderTopLeftRadius,
     borderTopRightRadius: terminalStyle.borderTopRightRadius,
   });
@@ -1522,7 +1647,8 @@ function buildTerminalSnapshotHtml() {
   setInlineStyles(main, {
     position: "relative",
     flex: "1",
-    padding: getComputedStyle(terminalMain).padding,
+    padding: terminalMainStyle.padding,
+    background: terminalMainStyle.backgroundColor,
   });
 
   if (isTerminalMode()) {
@@ -1721,8 +1847,11 @@ function init() {
   state.firstLineHasPlaceholder = detectPlaceholderActive();
   setCssVar("--command-color", refs.commandColorInput.value);
   setTextColors(refs.textColorInput.value);
+  setCssVar("--terminal-bg", refs.bgColorInput.value);
+  setCssVar("--terminal-bg-solid", refs.bgColorInput.value);
   setCssVar("--terminal-font-family", refs.fontFamilyInput.value);
   syncFontVariantOptions(defaults.fontVariant);
+  applyPreviewStyles();
   applyWordWrap(refs.wordWrapInput.checked);
   refs.codeLanguageInput.value = state.codeLanguage;
   applyCodeTheme(defaults.codeTheme);

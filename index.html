@@ -44,21 +44,56 @@
     </button>
   </div>
 
-  <div class="terminal">
-    <div class="titlebar">
-      <span class="window-control red"></span>
-      <span class="window-control yellow"></span>
-      <span class="window-control green"></span>
-      <span class="title">user@host:~$</span>
-    </div>
-    <div class="terminal-main">
-      <pre class="content terminal-content"
-        contenteditable="true"><span class="first-char">~ $ </span>type here...</pre>
-      <div class="code-layer" aria-hidden="true">
-        <pre class="code-content" aria-hidden="true"><code class="code-output" id="code-output"></code></pre>
-        <textarea class="code-input" id="code-input" spellcheck="false" placeholder="// type code here"></textarea>
+  <div class="preview-stage">
+    <div class="terminal-preview" id="terminal-preview">
+      <div class="terminal-preview-backdrop" aria-hidden="true"></div>
+      <div class="terminal">
+        <div class="titlebar">
+          <span class="window-control red"></span>
+          <span class="window-control yellow"></span>
+          <span class="window-control green"></span>
+          <span class="title">user@host:~$</span>
+        </div>
+        <div class="terminal-main">
+          <pre class="content terminal-content"
+            contenteditable="true"><span class="first-char">~ $ </span>type here...</pre>
+          <div class="code-layer" aria-hidden="true">
+            <pre class="code-content" aria-hidden="true"><code class="code-output" id="code-output"></code></pre>
+            <textarea class="code-input" id="code-input" spellcheck="false" placeholder="// type code here"></textarea>
+          </div>
+        </div>
       </div>
     </div>
+
+    <section class="preview-appearance-panel" id="ctrl-preview-appearance-panel"
+      aria-label="Preview appearance controls" aria-hidden="true" hidden>
+      <div class="preview-appearance-grid">
+        <label class="control-item control-item-range">
+          <span class="control-label-row">
+            <span class="control-label">Titlebar opacity:</span>
+            <output class="control-range-value" id="ctrl-titlebar-opacity-value"
+              for="ctrl-titlebar-opacity">90%</output>
+          </span>
+          <div class="control-range-row">
+            <input class="control-range" id="ctrl-titlebar-opacity" type="range" value="90" min="35" max="100" step="1">
+          </div>
+        </label>
+        <label class="control-item control-item-range">
+          <span class="control-label-row">
+            <span class="control-label">Terminal opacity:</span>
+            <output class="control-range-value" id="ctrl-terminal-opacity-value"
+              for="ctrl-terminal-opacity">76%</output>
+          </span>
+          <div class="control-range-row">
+            <input class="control-range" id="ctrl-terminal-opacity" type="range" value="76" min="20" max="100" step="1">
+          </div>
+        </label>
+        <label class="control-item">
+          <span class="control-label">Backdrop colour</span>
+          <input class="control-color" id="ctrl-preview-backdrop-color" type="color" value="#d7c4a3">
+        </label>
+      </div>
+    </section>
   </div>
 
   <div class="controls">
@@ -76,6 +111,13 @@
     <label class="control-item">
       <span class="control-label">Height</span>
       <input class="control-input" id="ctrl-height" type="number" value="330" min="180" max="900" step="10">
+    </label>
+    <label class="control-item control-item-checkbox control-section-toggle">
+      <span class="control-checkbox-row">
+        <input type="checkbox" id="ctrl-preview-transparency-enabled" class="control-checkbox"
+          aria-controls="ctrl-preview-appearance-panel" aria-expanded="false">
+        <span class="control-checkbox-text">Transparent</span>
+      </span>
     </label>
     <div class="control-divider"></div>
     <label class="control-item">
