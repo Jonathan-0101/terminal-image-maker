@@ -7,6 +7,7 @@ const refs = {
   copyHtmlLabel: document.querySelector(".copy-html-label"),
   exportActions: document.querySelector(".export-actions"),
   modeTabs: document.querySelectorAll(".control-tab[data-editor-mode]"),
+  previewStage: document.querySelector(".preview-stage"),
   terminalPreview: document.getElementById("terminal-preview"),
   terminal: document.querySelector(".terminal"),
   terminalContent: document.querySelector(".terminal-content"),
@@ -93,7 +94,7 @@ const defaults = {
   cmdColor: "#08ff02",
   cmdWordEnabled: false,
   wordWrapEnabled: true,
-  codeTextColorEnabled: false,
+  codeTextColorEnabled: true,
   terminalTitleTextVisible: true,
   codeTitleTextVisible: true,
   editorMode: "terminal",
@@ -354,6 +355,28 @@ function setRangeOutput(output, value) {
   output.textContent = `${value}%`;
 }
 
+function setPreviewAppearancePanelVisibility(visible) {
+  const panel = refs.previewAppearancePanel;
+  if (!panel) return;
+
+  if (refs.previewStage) {
+    refs.previewStage.classList.toggle("is-preview-controls-visible", visible);
+  }
+
+  panel.hidden = false;
+  panel.setAttribute("aria-hidden", visible ? "false" : "true");
+
+  if (visible) {
+    window.requestAnimationFrame(() => {
+      panel.classList.add("is-visible");
+    });
+
+    return;
+  }
+
+  panel.classList.remove("is-visible");
+}
+
 function syncPreviewControlAvailability() {
   const enabled = state.previewTransparencyEnabled;
   refs.previewTransparencyEnabledInput.setAttribute(
@@ -361,13 +384,7 @@ function syncPreviewControlAvailability() {
     enabled ? "true" : "false",
   );
 
-  if (refs.previewAppearancePanel) {
-    refs.previewAppearancePanel.hidden = !enabled;
-    refs.previewAppearancePanel.setAttribute(
-      "aria-hidden",
-      enabled ? "false" : "true",
-    );
-  }
+  setPreviewAppearancePanelVisibility(enabled);
 
   refs.titlebarOpacityInput.disabled = !enabled;
   refs.terminalOpacityInput.disabled = !enabled;
